@@ -1,0 +1,12 @@
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\bin\Debug\net10.0\WhatAreWeEating.Core.deps.json
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\bin\Debug\net10.0\WhatAreWeEating.Core.dll
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\bin\Debug\net10.0\WhatAreWeEating.Core.pdb
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\WhatAreWeEating.Core.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\WhatAreWeEating.Core.AssemblyInfoInputs.cache
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\WhatAreWeEating.Core.AssemblyInfo.cs
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\WhatAreWeEating.Core.csproj.CoreCompileInputs.cache
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\WhatAreWeEating.Core.sourcelink.json
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\WhatAreWeEating.Core.dll
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\refint\WhatAreWeEating.Core.dll
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\WhatAreWeEating.Core.pdb
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Core\obj\Debug\net10.0\ref\WhatAreWeEating.Core.dll

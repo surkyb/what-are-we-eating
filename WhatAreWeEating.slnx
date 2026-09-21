@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WhatAreWeEating.Core/WhatAreWeEating.Core.csproj" />
+    <Project Path="src/WhatAreWeEating.Infrastructure/WhatAreWeEating.Infrastructure.csproj" />
+    <Project Path="src/WhatAreWeEating.Recetas/WhatAreWeEating.Recetas.csproj" />
+  </Folder>
+</Solution>

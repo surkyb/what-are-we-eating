@@ -1,0 +1,16 @@
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\bin\Debug\net10.0\WhatAreWeEating.Recetas.deps.json
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\bin\Debug\net10.0\WhatAreWeEating.Recetas.dll
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\bin\Debug\net10.0\WhatAreWeEating.Recetas.pdb
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\bin\Debug\net10.0\WhatAreWeEating.Core.dll
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\bin\Debug\net10.0\WhatAreWeEating.Core.pdb
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreWeEating.Recetas.csproj.AssemblyReference.cache
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreWeEating.Recetas.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreWeEating.Recetas.AssemblyInfoInputs.cache
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreWeEating.Recetas.AssemblyInfo.cs
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreWeEating.Recetas.csproj.CoreCompileInputs.cache
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreWeEating.Recetas.sourcelink.json
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreW.AD0EB442.Up2Date
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreWeEating.Recetas.dll
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\refint\WhatAreWeEating.Recetas.dll
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\WhatAreWeEating.Recetas.pdb
+C:\Users\UserGPC\Documents\ITLA\C-5\P3\Proyectos\WhatAreWeEating\what-are-we-eating\src\WhatAreWeEating.Recetas\obj\Debug\net10.0\ref\WhatAreWeEating.Recetas.dll

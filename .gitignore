@@ -1,0 +1,29 @@
+# .NET
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# User-specific files
+*.user
+*.suo
+
+# Logs
+*.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal

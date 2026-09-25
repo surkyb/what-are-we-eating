@@ -1,4 +1,47 @@
 # WhatAreWeEating
+WhatAreWeEating
+Sistema de gestión y planificación de recetas — Programación III · ITLA · 2026-C-3.
+
+Permite administrar un catálogo de recetas, registrar los ingredientes disponibles en la despensa de cada usuario y determinar qué recetas se pueden preparar con lo que hay disponible. Construido con .NET 10, Entity Framework Core y SQL Server, dividido en un Core transversal (control de acceso, permisos, documentos, notificaciones, reportes, auditoría) y un módulo de negocio de recetas, independiente del Core.
+
+Estructura del repositorio
+WhatAreWeEating.slnx
+src/
+├── WhatAreWeEating.Core            # Piezas transversales (aún sin entidades propias)
+├── WhatAreWeEating.Recetas         # Dominio: recetas, ingredientes, despensa
+└── WhatAreWeEating.Infrastructure  # AppDbContext, Configurations/, Migrations/
+Cómo ejecutar el proyecto
+Nota: el repositorio todavía no tiene un proyecto host/API ejecutable — Control de acceso, el primer punto de entrada real, se construye en las semanas 2 a 4. Por ahora "ejecutar" significa restaurar dependencias, compilar y aplicar las migraciones contra SQL Server. Esta sección se actualiza con el comando dotnet run en cuanto exista el host.
+
+Requisitos
+.NET 10 SDK
+SQL Server (local o en contenedor) accesible
+Herramienta dotnet-ef: dotnet tool install --global dotnet-ef
+Pasos
+Clonar el repositorio
+
+git clone <url-del-repo>
+cd WhatAreWeEating
+Restaurar dependencias
+
+dotnet restore
+Configurar la cadena de conexión por variable de entorno — no va en appsettings versionado (RD-10)
+
+# bash/zsh
+export ConnectionStrings__DefaultConnection="Server=localhost;Database=WhatAreWeEating;User Id=sa;Password=<tu-password>;TrustServerCertificate=True;"
+# PowerShell
+$env:ConnectionStrings__DefaultConnection = "Server=localhost;Database=WhatAreWeEating;Trusted_Connection=True;TrustServerCertificate=True;"
+Compilar la solución
+
+dotnet build
+Aplicar las migraciones
+
+dotnet ef database update --project src/WhatAreWeEating.Infrastructure
+Verificado antes de abrir el pull request
+ dotnet restore sin errores
+ dotnet build sin errores
+ dotnet ef database update aplica ModeloInicialRecetas sin errores
+ Las 6 tablas del módulo de negocio existen en SQL Server tras el update
 
 ## Diagrama de componentes
 

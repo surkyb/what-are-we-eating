@@ -27,3 +27,21 @@
 *.db
 *.db-shm
 *.db-wal
+
+# Sistema operativo — Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+ 
+# Sistema operativo — macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+ 
+# JetBrains — archivo fuera de .idea/
+*.sln.iml
+ 
+# Resultados de pruebas
+TestResults/
+*.trx

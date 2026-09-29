@@ -2,7 +2,7 @@
 
 Sistema de gestión y planificación de recetas — Programación III · ITLA · 2026-C-3.
 
-Permite administrar un catálogo de recetas, registrar los ingredientes disponibles en la despensa de cada usuario y determinar qué recetas se pueden preparar con lo que hay disponible. Construido con .NET 10, Entity Framework Core y SQL Server, dividido en un **Core** transversal (control de acceso, permisos, documentos, notificaciones, reportes, auditoría) y un **módulo de negocio** de recetas, independiente del Core.
+Permite organizar un catálogo de recetas, registrar los ingredientes disponibles en la despensa de cada usuario y determinar qué recetas se pueden preparar con lo que hay disponible. Construido con .NET 10, Entity Framework Core y SQL Server, dividido en un **Core** transversal (control de acceso, permisos, documentos, notificaciones, reportes, auditoría) y un **módulo de negocio** de recetas, independiente del Core.
 
 ## Estructura del repositorio
 

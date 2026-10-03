@@ -1,4 +1,4 @@
-# WhatAreWeEating
+﻿# WhatAreWeEating
 
 Sistema de gestión y planificación de recetas — Programación III · ITLA · 2026-C-3.
 
@@ -23,6 +23,7 @@ src/
 | :--- | :--- |
 | `ConnectionStrings__Default` | Cadena de conexión principal hacia la base de datos SQL Server utilizada por EF Core (`AppDbContext`). |
 | `ASPNETCORE_ENVIRONMENT` | Entorno de ejecución de ASP.NET Core (`Development`, `Staging`, `Production`). Habilita la interfaz de Swagger y documentación OpenAPI en `Development`. |
+| `App__BaseUrl` | URL base de la aplicación (ej. `http://localhost:5228`) utilizada para generar los enlaces de activación de cuenta en los correos en cola. |
 
 ## Cómo ejecutar el proyecto
 
@@ -45,16 +46,18 @@ src/
    dotnet restore
    ```
 
-3. **Configurar la variable de entorno para la conexión:**
+3. **Configurar las variables de entorno:**
    ```powershell
    # PowerShell (Windows)
    $env:ConnectionStrings__Default = "Server=localhost;Database=WhatAreWeEating;Trusted_Connection=True;TrustServerCertificate=True;"
    $env:ASPNETCORE_ENVIRONMENT = "Development"
+   $env:App__BaseUrl = "http://localhost:5228"
    ```
    ```bash
    # Bash / Linux / macOS
    export ConnectionStrings__Default="Server=localhost;Database=WhatAreWeEating;User Id=sa;Password=<tu-password>;TrustServerCertificate=True;"
    export ASPNETCORE_ENVIRONMENT="Development"
+   export App__BaseUrl="http://localhost:5228"
    ```
 
 4. **Compilar la solución:**
@@ -78,6 +81,18 @@ src/
 ---
 
 ## Cómo provocar cada criterio
+
+### Registro de usuario (`POST /auth/registro`)
+
+```json
+{
+  "nombre": "Ana Pérez",
+  "correo": "ana@example.com",
+  "password": "<contraseña-válida>"
+}
+```
+
+`nombre` es obligatorio, no puede estar vacío ni ser solo espacios y admite máximo 100 caracteres; de lo contrario la API responde `400`.
 
 <!-- Sección reservada para documentar los pasos y escenarios de prueba de cada criterio de aceptación y requisitos funcionales/no-funcionales del sistema. -->
 

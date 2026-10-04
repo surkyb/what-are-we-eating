@@ -74,7 +74,7 @@ Los comandos se ejecutan desde la raíz del repositorio. Los ejemplos usan Power
    $env:Jwt__Key = [Convert]::ToBase64String($bytes)
 
    # Primer Administrador (opcional pero necesario para las pruebas de administración)
-   $env:Seed__AdminEmail = "admin@example.com"
+   $env:Seed__AdminEmail = "admin@whatareweating.test"
    $env:Seed__AdminPassword = "<contraseña-válida: mínimo 8 caracteres, con letra y número>"
    ```
    Con autenticación SQL en vez de la de Windows: `Server=localhost;Database=WhatAreWeEating;User Id=<usuario>;Password=<contraseña>;TrustServerCertificate=True;`.
@@ -126,7 +126,7 @@ Esta sección se puede seguir de arriba hacia abajo. Cada criterio tiene un ejem
 
 ### Preparación
 
-1. **Ventana 1 (API):** sigue los pasos de *Cómo ejecutar el proyecto* con `Seed__AdminEmail = admin@example.com` y `Seed__AdminPassword` igual a la **contraseña de prueba 1** que usarás abajo.
+1. **Ventana 1 (API):** sigue los pasos de *Cómo ejecutar el proyecto* con `Seed__AdminEmail = admin@whatareweating.test` y `Seed__AdminPassword` igual a la **contraseña de prueba 1** que usarás abajo.
 2. **Ventana 2 (pruebas):** define las funciones auxiliares (pégalas completas). Pedirá tres contraseñas de prueba distintas, que cumplan la política (mínimo 8 caracteres, con letra y número). La primera debe coincidir con `Seed__AdminPassword`.
 
 ```powershell
@@ -252,9 +252,9 @@ Sql "UPDATE Usuarios SET IntentosFallidos = 0, BloqueadoHasta = NULL WHERE Corre
 El rol que se usa para autorizar se lee de la base de datos en cada petición (RD-06). Qué rol puede ejecutar cada operación está declarado en un solo archivo: `src/WhatAreWeEating.Api/Auth/PoliciesCatalogo.cs` (RF-CA-05).
 
 ```powershell
-$a = Login 'admin@example.com' $pw                 # Administrador sembrado con Seed__*
+$a = Login 'admin@whatareweating.test' $pw                 # Administrador sembrado con Seed__*
 $t = Login 'ana@example.com' $pw                   # Estándar
-$idAna = IdUsuario 'ana@example.com'; $idBeto = IdUsuario 'beto@example.com'; $idAdmin = IdUsuario 'admin@example.com'
+$idAna = IdUsuario 'ana@example.com'; $idBeto = IdUsuario 'beto@example.com'; $idAdmin = IdUsuario 'admin@whatareweating.test'
 
 # RF-CA-05 catálogo único: abre este archivo y lee operación -> rol
 Get-Content src/WhatAreWeEating.Api/Auth/PoliciesCatalogo.cs
@@ -386,20 +386,25 @@ $env:Smtp__Host = "127.0.0.1"; $env:Smtp__Port = "2525"; $env:Smtp__User = "usua
 $env:Smtp__Password = "no-importa"; $env:Smtp__From = "no-reply@example.com"; $env:Smtp__EnableSsl = "false"
 
 # (Primero, con el SMTP de prueba APAGADO: ciérralo o no lo abras todavía)
-# RF-NOT-13 un envío fallido deja el correo Pendiente, suma un intento y guarda el motivo (sin contraseña ni traza); continúa con el siguiente
+# RF-NOT-08 el SMTP caído no rompe la operación: los registros, recuperaciones y forzados de las secciones anteriores
+# terminaron bien y sus correos están encolados como Pendiente
+Sql "SELECT COUNT(*) AS Pendientes FROM CorreosEnCola WHERE Estado='Pendiente'"
+# Con el SMTP caído el worker no puede enviar: el correo sigue Pendiente, suma un intento y guarda el motivo
+# (sin contraseña ni traza). Los reintentos y el estado Fallido llegan en la semana 11
 dotnet run --project src/WhatAreWeEating.MailWorker
 Sql "SELECT TOP 3 Destinatario, Estado, Intentos, LEFT(UltimoError,70) FROM CorreosEnCola WHERE Estado='Pendiente'"
 
 # Enciende el SMTP de prueba y ejecuta de nuevo:
-# RF-NOT-08 envía por SMTP; RF-NOT-09 procesa los pendientes uno por uno (una línea por correo) y termina al vaciar la cola
+# RF-NOT-09 el proceso independiente toma los pendientes y los envía (una línea por correo) y termina al vaciar la cola
 dotnet run --project src/WhatAreWeEating.MailWorker
 Sql "SELECT COUNT(*) AS Pendientes FROM CorreosEnCola WHERE Estado='Pendiente'"      # 0
 Sql "SELECT TOP 3 Destinatario, Estado, FechaEnvio FROM CorreosEnCola WHERE Estado='Enviado'"
 
-# RF-NOT-12 un correo Enviado nunca se reenvía: una segunda ejecución no envía nada (Enviados=0)
+# RF-NOT-12 un correo Enviado no se reenvía: una segunda ejecución no envía nada (Enviados=0)
 dotnet run --project src/WhatAreWeEating.MailWorker
 
-# Sin variables Smtp__*: termina con código 2 y nombra las variables que faltan, sin valores
+# RF-NOT-13 las credenciales SMTP se leen solo de variables de entorno: sin Smtp__* el worker termina con código 2
+# y nombra las variables que faltan, sin valores
 Remove-Item Env:Smtp__*; dotnet run --project src/WhatAreWeEating.MailWorker; $LASTEXITCODE
 ```
 
@@ -443,7 +448,7 @@ Resultado esperado: las cinco transiciones permitidas (`Borrador -> EnRevision`,
 
 ### Limpieza de los datos de prueba
 
-Borra solo lo creado por estos ejemplos (usuarios `@example.com`), en este orden por las claves foráneas:
+Borra solo lo creado por estos ejemplos (usuarios `@example.com`; el Administrador sembrado usa otro dominio y no se borra), en este orden por las claves foráneas:
 
 ```powershell
 $in = "(SELECT Id FROM Usuarios WHERE Correo LIKE '%@example.com')"

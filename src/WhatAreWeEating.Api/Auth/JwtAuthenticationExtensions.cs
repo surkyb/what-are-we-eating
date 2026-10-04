@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -42,9 +43,22 @@ public static class JwtAuthenticationExtensions
                         }
 
                         var sesiones = context.HttpContext.RequestServices.GetRequiredService<ISesionService>();
-                        if (!await sesiones.ValidarSesionAsync(sesionId, context.HttpContext.RequestAborted))
+                        var usuario = await sesiones.ValidarYObtenerUsuarioAsync(sesionId, context.HttpContext.RequestAborted);
+                        if (usuario is null)
                         {
                             context.Fail("Sesión inválida.");
+                            return;
+                        }
+
+                        // RD-06: el rol se toma de la BD en cada petición, nunca del token
+                        if (context.Principal.Identity is ClaimsIdentity identity)
+                        {
+                            foreach (var claim in identity.FindAll(c => c.Type is ClaimTypes.Role or "role" or "roles").ToList())
+                            {
+                                identity.RemoveClaim(claim);
+                            }
+
+                            identity.AddClaim(new Claim(ClaimTypes.Role, usuario.Rol.ToString()));
                         }
                     },
                     OnChallenge = async context =>
@@ -61,7 +75,7 @@ public static class JwtAuthenticationExtensions
                 };
             });
 
-        services.AddAuthorization();
+        services.AddAuthorization(PoliciesCatalogo.Registrar);
         return services;
     }
 

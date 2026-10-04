@@ -27,6 +27,9 @@ src/
 | `Jwt__Key` | Clave secreta con la que se firman los JWT de sesión (mínimo 32 caracteres). Obligatoria: si falta o es corta, la API no arranca y el mensaje nombra la variable sin mostrar su valor. |
 | `Jwt__Issuer` | (Opcional) Emisor del JWT. Por defecto `WhatAreWeEating`. |
 | `Jwt__Audience` | (Opcional) Audiencia del JWT. Por defecto `WhatAreWeEating.Api`. |
+| `Seed__AdminEmail` | Correo del primer Administrador que se crea al arrancar la API. Si falta, no se siembra nada y se imprime un aviso. Si ya existe un usuario con ese correo, no se modifica. |
+| `Seed__AdminName` | (Opcional) Nombre del administrador sembrado. Por defecto `Administrador`. |
+| `Seed__AdminPassword` | Contraseña del administrador sembrado; debe cumplir la política de contraseñas y nunca se imprime. |
 | `Smtp__Host` | Servidor SMTP que usa el MailWorker para enviar los correos en cola. |
 | `Smtp__Port` | Puerto del servidor SMTP (número entre 1 y 65535). |
 | `Smtp__User` | Usuario con el que el MailWorker se autentica en el servidor SMTP. |
@@ -162,6 +165,32 @@ Invoke-RestMethod http://localhost:5228/auth/logout -Method Post -Headers @{ Aut
 ```
 
 Respuestas de login: `401` correo inexistente o contraseña incorrecta (mismo mensaje en ambos casos), `403` cuenta no activa (solo con contraseña correcta), `423` cuenta bloqueada 15 minutos tras 5 fallos seguidos, `400` datos vacíos.
+
+### Administración de usuarios (solo Administrador)
+
+El primer Administrador se crea al arrancar la API con `Seed__AdminEmail`, `Seed__AdminName` (opcional) y `Seed__AdminPassword`. Haz login con esa cuenta y usa su token (`$a`) en la cabecera `Authorization: Bearer`.
+
+Qué rol puede ejecutar cada operación está declarado en un solo archivo: `src/WhatAreWeEating.Api/Auth/PoliciesCatalogo.cs`. El rol se lee de la base de datos en cada petición, no del token.
+
+```powershell
+$h = @{ Authorization = "Bearer $a" }; $u = "http://localhost:5228/admin/usuarios"
+
+# Listar (id, nombre, correo, rol, activo; nunca hashes ni sesiones)
+Invoke-RestMethod $u -Headers $h
+
+# Cambiar rol: valores válidos "Administrador" o "Estandar" (otro valor: 400; usuario inexistente: 404)
+Invoke-RestMethod "$u/<id>/rol" -Method Put -Headers $h -ContentType 'application/json' -Body '{"rol":"Administrador"}'
+
+# Desactivar: Activo = false y revoca todas sus sesiones (a uno mismo: 409)
+Invoke-RestMethod "$u/<id>/desactivar" -Method Post -Headers $h
+
+# Reactivar
+Invoke-RestMethod "$u/<id>/reactivar" -Method Post -Headers $h
+```
+
+- Un usuario `Estandar` que llama a cualquiera de estos endpoints recibe `403` en JSON; sin token, `401`.
+- Un Administrador no puede desactivarse ni cambiarse el rol a sí mismo (`409`).
+- Tras desactivar, el token del usuario devuelve `401` en la siguiente petición y su login devuelve `403`.
 
 <!-- Sección reservada para documentar los pasos y escenarios de prueba de cada criterio de aceptación y requisitos funcionales/no-funcionales del sistema. -->
 

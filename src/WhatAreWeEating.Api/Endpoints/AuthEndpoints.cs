@@ -142,7 +142,7 @@ public static class AuthEndpoints
 
             return Results.Ok(new MeResponse(usuario.Nombre, usuario.Correo, usuario.Rol.ToString()));
         })
-        .RequireAuthorization()
+        .RequiereOperacion(PoliciesCatalogo.Operaciones.ConsultarPerfil)
         .WithName("ObtenerUsuarioAutenticado")
         .Produces<MeResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status401Unauthorized);
@@ -161,7 +161,7 @@ public static class AuthEndpoints
             await sesionService.CerrarSesionAsync(sesionId, cancellationToken);
             return Results.Ok(new MensajeResponse("Sesión cerrada correctamente."));
         })
-        .RequireAuthorization()
+        .RequiereOperacion(PoliciesCatalogo.Operaciones.CerrarSesion)
         .WithName("CerrarSesion")
         .Produces<MensajeResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status401Unauthorized);

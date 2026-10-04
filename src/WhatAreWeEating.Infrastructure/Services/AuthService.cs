@@ -189,6 +189,11 @@ public class AuthService : IAuthService
             return (false, "El nombre no puede exceder los 100 caracteres.");
         }
 
+        if (nombreNormalizado.Any(char.IsControl))
+        {
+            return (false, "El nombre no puede contener caracteres de control.");
+        }
+
         if (!_emailValidator.IsValid(correo))
         {
             return (false, "El correo electrónico provisto no tiene un formato válido.");

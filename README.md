@@ -12,7 +12,8 @@ src/
 ├── WhatAreWeEating.Api             # Host Web API, middleware de errores, Swagger
 ├── WhatAreWeEating.Core            # Piezas transversales (sin dependencias de negocio/infra)
 ├── WhatAreWeEating.Recetas         # Dominio: recetas, ingredientes, despensa
-└── WhatAreWeEating.Infrastructure  # AppDbContext, Configurations/, Migrations/, DI
+├── WhatAreWeEating.Infrastructure  # AppDbContext, Configurations/, Migrations/, DI
+└── WhatAreWeEating.MailWorker      # Consola independiente: envía los correos en cola por SMTP
 ```
 
 ## Variables de entorno
@@ -23,6 +24,12 @@ src/
 | :--- | :--- |
 | `ConnectionStrings__Default` | Cadena de conexión principal hacia la base de datos SQL Server utilizada por EF Core (`AppDbContext`). |
 | `ASPNETCORE_ENVIRONMENT` | Entorno de ejecución de ASP.NET Core (`Development`, `Staging`, `Production`). Habilita la interfaz de Swagger y documentación OpenAPI en `Development`. |
+| `Smtp__Host` | Servidor SMTP que usa el MailWorker para enviar los correos en cola. |
+| `Smtp__Port` | Puerto del servidor SMTP (número entre 1 y 65535). |
+| `Smtp__User` | Usuario con el que el MailWorker se autentica en el servidor SMTP. |
+| `Smtp__Password` | Contraseña (o contraseña de aplicación) de esa cuenta SMTP. Nunca se imprime ni se guarda en `UltimoError`. |
+| `Smtp__From` | Dirección remitente que aparece en los correos enviados. |
+| `Smtp__EnableSsl` | `true` o `false`: activa SSL/TLS en la conexión SMTP. |
 | `App__BaseUrl` | URL base de la aplicación (ej. `http://localhost:5228`) utilizada para generar los enlaces de activación de cuenta en los correos en cola. |
 
 ## Cómo ejecutar el proyecto
@@ -77,6 +84,39 @@ src/
 
 7. **Explorar documentación interactiva (Swagger UI):**
    - Abrir el navegador en `https://localhost:<puerto>/swagger`.
+
+### Ejecutar el MailWorker (envío de correos)
+
+El registro de usuarios solo **encola** el correo de activación; el envío real lo hace el `MailWorker`, un proceso aparte (RF-NOT-08, RF-NOT-09). Se ejecuta una vez, procesa los correos `Pendiente` uno por uno y termina.
+
+1. Define las variables `Smtp__*` y `ConnectionStrings__Default` en la misma sesión (solo por variables de entorno, nunca en archivos del repositorio):
+   ```powershell
+   $env:Smtp__Host = "<servidor-smtp>"
+   $env:Smtp__Port = "587"
+   $env:Smtp__User = "<usuario>"
+   $env:Smtp__Password = "<contraseña>"
+   $env:Smtp__From = "<remitente@dominio>"
+   $env:Smtp__EnableSsl = "true"
+   ```
+2. Ejecútalo:
+   ```bash
+   dotnet run --project src/WhatAreWeEating.MailWorker
+   ```
+
+Comportamiento:
+- Correo enviado: `Estado = Enviado` y `FechaEnvio` en UTC. Un correo `Enviado` nunca se reenvía, así que ejecutarlo varias veces no duplica envíos (RF-NOT-12).
+- Envío fallido: se incrementa `Intentos`, se guarda el motivo en `UltimoError` (sin contraseña ni traza), el correo sigue `Pendiente` y se continúa con el siguiente.
+- Si falta o es inválida alguna variable `Smtp__*`, termina con código 2 y un mensaje que solo nombra la variable, sin mostrar valores.
+
+### Probar el registro con el SMTP apagado
+
+1. Levanta la API y registra un usuario en `POST /auth/registro`: responde `201` aunque no haya servidor SMTP, porque solo encola el correo.
+2. Verifica que el correo quedó pendiente:
+   ```sql
+   SELECT Destinatario, Estado, Intentos, UltimoError FROM CorreosEnCola;
+   ```
+   Debe verse `Estado = Pendiente`, `Intentos = 0` y `UltimoError = NULL`.
+3. (Opcional) Ejecuta el MailWorker con `Smtp__Host` apuntando a un servidor apagado: el correo sigue `Pendiente`, `Intentos` aumenta y `UltimoError` guarda el motivo.
 
 ---
 

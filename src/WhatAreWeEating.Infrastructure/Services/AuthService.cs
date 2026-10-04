@@ -12,19 +12,162 @@ public class AuthService : IAuthService
     private readonly IPasswordValidator _passwordValidator;
     private readonly IEmailValidator _emailValidator;
     private readonly ITokenService _tokenService;
+    private readonly ISesionService _sesionService;
 
     public AuthService(
         AppDbContext context,
         IPasswordHasher passwordHasher,
         IPasswordValidator passwordValidator,
         IEmailValidator emailValidator,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        ISesionService sesionService)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
         _emailValidator = emailValidator;
         _tokenService = tokenService;
+        _sesionService = sesionService;
+    }
+
+    private const string MensajeCodigoInvalido = "El código de recuperación es inválido o ha expirado.";
+
+    public async Task<(bool Success, string? ErrorMessage)> SolicitarRecuperacionAsync(
+        string correo,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_emailValidator.IsValid(correo))
+        {
+            return (false, "El correo electrónico provisto no tiene un formato válido.");
+        }
+
+        var normalizedEmail = correo.Trim().ToLowerInvariant();
+
+        var usuario = await _context.Usuarios
+            .FirstOrDefaultAsync(u => u.Correo == normalizedEmail, cancellationToken);
+
+        // RF-CA-09: no se distingue entre inexistente, inactivo o activo en la respuesta
+        if (usuario is not null && usuario.Activo)
+        {
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                await CodigoRecuperacion.EncolarAsync(
+                    _context, _tokenService, usuario,
+                    "Recuperación de contraseña - WhatAreWeEating",
+                    "Recibimos una solicitud para recuperar tu contraseña en WhatAreWeEating.",
+                    cancellationToken);
+
+                await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                throw;
+            }
+        }
+
+        return (true, null);
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> RestablecerPasswordAsync(
+        string codigo,
+        string passwordNueva,
+        CancellationToken cancellationToken = default)
+    {
+        var (politicaValida, politicaError) = _passwordValidator.Validate(passwordNueva);
+        if (!politicaValida)
+        {
+            return (false, politicaError);
+        }
+
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            return (false, MensajeCodigoInvalido);
+        }
+
+        var codigoHash = _tokenService.HashToken(codigo.Trim());
+        var ahora = DateTime.UtcNow;
+
+        var token = await _context.TokensUnUso
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.TokenHash == codigoHash && t.Tipo == TipoToken.RecuperacionPassword, cancellationToken);
+
+        if (token is null || token.Usado || token.FechaVencimiento < ahora)
+        {
+            return (false, MensajeCodigoInvalido);
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Consumo atómico: si otra petición ya lo usó, no se afecta ninguna fila
+            var consumido = await _context.TokensUnUso
+                .Where(t => t.Id == token.Id && !t.Usado)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.Usado, true), cancellationToken);
+
+            var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == token.UsuarioId, cancellationToken);
+
+            if (consumido == 0 || usuario is null || !usuario.Activo)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return (false, MensajeCodigoInvalido);
+            }
+
+            usuario.PasswordHash = _passwordHasher.HashPassword(passwordNueva);
+            usuario.IntentosFallidos = 0;
+            usuario.BloqueadoHasta = null;
+            await _context.SaveChangesAsync(cancellationToken);
+
+            await _sesionService.RevocarSesionesDeUsuarioAsync(usuario.Id, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return (true, null);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> CambiarPasswordAsync(
+        Guid usuarioId,
+        string passwordActual,
+        string passwordNueva,
+        CancellationToken cancellationToken = default)
+    {
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == usuarioId, cancellationToken);
+
+        if (usuario is null || !_passwordHasher.VerifyPassword(passwordActual, usuario.PasswordHash))
+        {
+            return (false, "La contraseña actual es incorrecta.");
+        }
+
+        var (politicaValida, politicaError) = _passwordValidator.Validate(passwordNueva);
+        if (!politicaValida)
+        {
+            return (false, politicaError);
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            usuario.PasswordHash = _passwordHasher.HashPassword(passwordNueva);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // RF-CA-12: se revocan todas las sesiones, incluida la actual
+            await _sesionService.RevocarSesionesDeUsuarioAsync(usuario.Id, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return (true, null);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<(bool Success, string? ErrorMessage)> RegistrarUsuarioAsync(

@@ -281,10 +281,13 @@ public class AuthService : IAuthService
         var tokenHash = _tokenService.HashToken(token);
 
         var tokenEntity = await _context.TokensUnUso
+            .AsNoTracking()
             .FirstOrDefaultAsync(t => t.TokenHash == tokenHash && t.Tipo == TipoToken.Activacion, cancellationToken);
 
+        var ahora = DateTime.UtcNow;
+
         // RF-CA-16: Si es usado, vencido o inexistente, se rechaza y el estado no cambia
-        if (tokenEntity == null || tokenEntity.Usado || tokenEntity.FechaVencimiento < DateTime.UtcNow)
+        if (tokenEntity == null || tokenEntity.Usado || tokenEntity.FechaVencimiento < ahora)
         {
             return (false, "El enlace de activación es inválido o ha expirado.");
         }
@@ -300,9 +303,19 @@ public class AuthService : IAuthService
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            tokenEntity.Usado = true;
+            // Consumo atómico: solo una petición puede marcar el token como usado (RF-CA-16)
+            var consumido = await _context.TokensUnUso
+                .Where(t => t.Id == tokenEntity.Id && !t.Usado && t.FechaVencimiento > ahora)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.Usado, true), cancellationToken);
+
+            if (consumido != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return (false, "El enlace de activación es inválido o ha expirado.");
+            }
+
             usuario.Activo = true;
-            usuario.FechaActivacion = DateTime.UtcNow;
+            usuario.FechaActivacion = ahora;
 
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);

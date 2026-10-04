@@ -74,7 +74,7 @@ Los comandos se ejecutan desde la raíz del repositorio. Los ejemplos usan Power
    $env:Jwt__Key = [Convert]::ToBase64String($bytes)
 
    # Primer Administrador (opcional pero necesario para las pruebas de administración)
-   $env:Seed__AdminEmail = "admin@whatareweating.test"
+   $env:Seed__AdminEmail = "admin@whatareweeating.test"
    $env:Seed__AdminPassword = "<contraseña-válida: mínimo 8 caracteres, con letra y número>"
    ```
    Con autenticación SQL en vez de la de Windows: `Server=localhost;Database=WhatAreWeEating;User Id=<usuario>;Password=<contraseña>;TrustServerCertificate=True;`.
@@ -126,7 +126,7 @@ Esta sección se puede seguir de arriba hacia abajo. Cada criterio tiene un ejem
 
 ### Preparación
 
-1. **Ventana 1 (API):** sigue los pasos de *Cómo ejecutar el proyecto* con `Seed__AdminEmail = admin@whatareweating.test` y `Seed__AdminPassword` igual a la **contraseña de prueba 1** que usarás abajo.
+1. **Ventana 1 (API):** sigue los pasos de *Cómo ejecutar el proyecto* con `Seed__AdminEmail = admin@whatareweeating.test` y `Seed__AdminPassword` igual a la **contraseña de prueba 1** que usarás abajo.
 2. **Ventana 2 (pruebas):** define las funciones auxiliares (pégalas completas). Pedirá tres contraseñas de prueba distintas, que cumplan la política (mínimo 8 caracteres, con letra y número). La primera debe coincidir con `Seed__AdminPassword`.
 
 ```powershell
@@ -252,9 +252,9 @@ Sql "UPDATE Usuarios SET IntentosFallidos = 0, BloqueadoHasta = NULL WHERE Corre
 El rol que se usa para autorizar se lee de la base de datos en cada petición (RD-06). Qué rol puede ejecutar cada operación está declarado en un solo archivo: `src/WhatAreWeEating.Api/Auth/PoliciesCatalogo.cs` (RF-CA-05).
 
 ```powershell
-$a = Login 'admin@whatareweating.test' $pw                 # Administrador sembrado con Seed__*
+$a = Login 'admin@whatareweeating.test' $pw                 # Administrador sembrado con Seed__*
 $t = Login 'ana@example.com' $pw                   # Estándar
-$idAna = IdUsuario 'ana@example.com'; $idBeto = IdUsuario 'beto@example.com'; $idAdmin = IdUsuario 'admin@whatareweating.test'
+$idAna = IdUsuario 'ana@example.com'; $idBeto = IdUsuario 'beto@example.com'; $idAdmin = IdUsuario 'admin@whatareweeating.test'
 
 # RF-CA-05 catálogo único: abre este archivo y lee operación -> rol
 Get-Content src/WhatAreWeEating.Api/Auth/PoliciesCatalogo.cs

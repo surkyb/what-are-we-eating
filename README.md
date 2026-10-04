@@ -79,6 +79,10 @@ Los comandos se ejecutan desde la raíz del repositorio. Los ejemplos usan Power
    ```
    Con autenticación SQL en vez de la de Windows: `Server=localhost;Database=WhatAreWeEating;User Id=<usuario>;Password=<contraseña>;TrustServerCertificate=True;`.
 
+   Notas:
+   - Cada ventana de PowerShell genera una `Jwt__Key` nueva, así que al reiniciar la API desde otra ventana los tokens emitidos antes dan 401. Los usuarios y sus contraseñas sí sobreviven, porque están en la base. Para conservar también las sesiones, reutiliza la misma `Jwt__Key`.
+   - El texto entre `<...>` de `Seed__AdminPassword` es solo un marcador: reemplázalo por una contraseña real que cumpla la política y que coincida con la **contraseña de prueba 1** de la sección «Preparación».
+
 3. **Compilar:**
    ```powershell
    dotnet build
@@ -117,6 +121,8 @@ dotnet run --project src/WhatAreWeEating.MailWorker
 Códigos de salida: `0` terminó de vaciar la cola (aunque algún envío haya fallado), `2` falta o es inválida alguna variable (el mensaje solo nombra la variable, nunca el valor), `1` error inesperado.
 
 Para probar sin un servidor real, ver [Servidor SMTP de prueba local](#servidor-smtp-de-prueba-local) más abajo.
+
+> **Antes de las pruebas:** los ejemplos de «Cómo provocar cada criterio» crean usuarios `@example.com`. Repetir las secciones 1 a 5 sobre la misma base falla por correos duplicados (400); la sección [Limpieza de los datos de prueba](#limpieza-de-los-datos-de-prueba) los borra y permite repetirlas.
 
 ---
 
@@ -193,6 +199,16 @@ Llamar Post '/auth/registro' @{ nombre = 'X'; correo = 'hola'; password = $pw }
 # RF-CA-14 política de contraseña (mín. 8 caracteres, una letra y un número): 400
 Llamar Post '/auth/registro' @{ nombre = 'X'; correo = 'x@example.com'; password = 'abc' }
 
+# RD-07 entradas inválidas: rechazo controlado (400), nunca un error 500
+foreach ($c in 'a@..com', 'a@b..com', '.a@b.com', 'a.@b.com', 'a@-b.com', 'a@b-.com') {                 # correos mal formados
+    Llamar Post '/auth/registro' @{ nombre = 'X'; correo = $c; password = $pw }
+}
+Llamar Post '/auth/registro' @{ nombre = 'X'; correo = "a@example.com$([char]0)"; password = $pw }      # carácter de control (NUL) en el correo
+Llamar Post '/auth/registro' @{ nombre = "X$([char]0)"; correo = 'x@example.com'; password = $pw }      # carácter de control en el nombre
+Llamar Post '/auth/registro' @{ nombre = 'X'; correo = 'x@example.com'; password = ('a1' * 65) }       # contraseña de más de 128 caracteres
+try { Invoke-WebRequest "$api/auth/login" -Method Post -ContentType 'application/json' -Body '{' -UseBasicParsing }
+catch { [int]$_.Exception.Response.StatusCode }                                                         # JSON roto: 400
+
 # RF-CA-15 una cuenta sin activar no entra aunque la contraseña sea correcta (403) y el correo de activación
 # solo queda encolado (Pendiente), nunca se envía dentro de la operación
 Llamar Post '/auth/login' @{ correo = 'ana@example.com'; password = $pw }
@@ -265,6 +281,12 @@ Get-Content src/WhatAreWeEating.Api/Auth/PoliciesCatalogo.cs
 Llamar Get '/admin/usuarios' $null $t
 Llamar Get '/admin/usuarios'
 
+# RF-CA-06 y RF-CA-20 un Estándar que arma a mano las demás operaciones de Administrador (desactivar, reactivar
+# y forzar restablecimiento) también recibe 403 en las tres
+Llamar Post "/admin/usuarios/$idBeto/desactivar" $null $t
+Llamar Post "/admin/usuarios/$idBeto/reactivar" $null $t
+Llamar Post "/admin/usuarios/$idBeto/forzar-restablecimiento" $null $t
+
 # RF-CA-21 listado: solo id, nombre, correo, rol y activo (nunca hashes, sales, tokens ni sesiones)
 $lista = Llamar Get '/admin/usuarios' $null $a
 (($lista.Substring(4) | ConvertFrom-Json)[0].PSObject.Properties.Name) -join ', '
@@ -291,6 +313,14 @@ $sb = Login 'beto@example.com' $pw
 Llamar Post "/admin/usuarios/$idBeto/desactivar" $null $a        # 200
 Llamar Get '/auth/me' $null $sb                                  # 401: su sesión abierta dejó de valer
 Llamar Post '/auth/login' @{ correo = 'beto@example.com'; password = $pw }   # 403
+
+# Un desactivado no puede reactivarse por un flujo público: reenviar-activacion responde lo mismo de siempre (200),
+# no encola ningún correo y no lo reactiva
+$antes = Sql "SELECT COUNT(*) FROM CorreosEnCola WHERE Destinatario='beto@example.com'"
+Llamar Post '/auth/reenviar-activacion' @{ correo = 'beto@example.com' }
+(Sql "SELECT COUNT(*) FROM CorreosEnCola WHERE Destinatario='beto@example.com'") - $antes    # 0: no se encoló ningún correo
+Sql "SELECT Activo FROM Usuarios WHERE Correo='beto@example.com'"                              # 0: sigue desactivado
+
 Llamar Post "/admin/usuarios/$idBeto/reactivar" $null $a         # 200
 ```
 
@@ -362,6 +392,24 @@ Llamar Post '/auth/restablecer' @{ codigo = (CodigoRecuperacion 'ana@example.com
 
 Hasta aquí los correos solo estaban en cola. Ahora los envía el worker.
 
+#### Pruebas del worker con el SMTP apagado
+
+En la ventana de pruebas (la misma donde definiste las funciones auxiliares), desde la raíz del repositorio (no pipes la salida a `Select -First`, porque cortaría el worker a medias). Todavía no abras el servidor SMTP de prueba:
+
+```powershell
+$env:ConnectionStrings__Default = "Server=localhost;Database=WhatAreWeEating;Trusted_Connection=True;TrustServerCertificate=True;"
+$env:Smtp__Host = "127.0.0.1"; $env:Smtp__Port = "2525"; $env:Smtp__User = "usuario"
+$env:Smtp__Password = "no-importa"; $env:Smtp__From = "no-reply@example.com"; $env:Smtp__EnableSsl = "false"
+
+# RF-NOT-08 el SMTP caído no rompe la operación: los registros, recuperaciones y forzados de las secciones anteriores
+# terminaron bien y sus correos están encolados como Pendiente
+Sql "SELECT COUNT(*) AS Pendientes FROM CorreosEnCola WHERE Estado='Pendiente'"
+# Con el SMTP caído el worker no puede enviar: el correo sigue Pendiente, suma un intento y guarda el motivo
+# (sin contraseña ni traza). Los reintentos y el estado Fallido llegan en la semana 11
+dotnet run --project src/WhatAreWeEating.MailWorker
+Sql "SELECT TOP 3 Destinatario, Estado, Intentos, LEFT(UltimoError,70) FROM CorreosEnCola WHERE Estado='Pendiente'"
+```
+
 #### Servidor SMTP de prueba local
 
 Si no tienes un servidor SMTP real, abre **otra ventana de PowerShell**, pega esto y déjala abierta (se detiene con `Ctrl+C`). Acepta cualquier mensaje y no entrega nada a nadie:
@@ -384,25 +432,11 @@ while ($true) {
 }
 ```
 
-#### Pruebas del worker
+#### Pruebas del worker con el SMTP encendido
 
-En la ventana de pruebas (la misma donde definiste las funciones auxiliares), desde la raíz del repositorio (no pipes la salida a `Select -First`, porque cortaría el worker a medias):
+Con el servidor de prueba abierto, vuelve a la ventana de pruebas (conserva las variables `Smtp__*` definidas arriba):
 
 ```powershell
-$env:ConnectionStrings__Default = "Server=localhost;Database=WhatAreWeEating;Trusted_Connection=True;TrustServerCertificate=True;"
-$env:Smtp__Host = "127.0.0.1"; $env:Smtp__Port = "2525"; $env:Smtp__User = "usuario"
-$env:Smtp__Password = "no-importa"; $env:Smtp__From = "no-reply@example.com"; $env:Smtp__EnableSsl = "false"
-
-# (Primero, con el SMTP de prueba APAGADO: ciérralo o no lo abras todavía)
-# RF-NOT-08 el SMTP caído no rompe la operación: los registros, recuperaciones y forzados de las secciones anteriores
-# terminaron bien y sus correos están encolados como Pendiente
-Sql "SELECT COUNT(*) AS Pendientes FROM CorreosEnCola WHERE Estado='Pendiente'"
-# Con el SMTP caído el worker no puede enviar: el correo sigue Pendiente, suma un intento y guarda el motivo
-# (sin contraseña ni traza). Los reintentos y el estado Fallido llegan en la semana 11
-dotnet run --project src/WhatAreWeEating.MailWorker
-Sql "SELECT TOP 3 Destinatario, Estado, Intentos, LEFT(UltimoError,70) FROM CorreosEnCola WHERE Estado='Pendiente'"
-
-# Enciende el SMTP de prueba y ejecuta de nuevo:
 # RF-NOT-09 el proceso independiente toma los pendientes y los envía (una línea por correo) y termina al vaciar la cola
 dotnet run --project src/WhatAreWeEating.MailWorker
 Sql "SELECT COUNT(*) AS Pendientes FROM CorreosEnCola WHERE Estado='Pendiente'"      # 0

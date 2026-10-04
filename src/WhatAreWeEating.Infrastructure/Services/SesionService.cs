@@ -95,14 +95,18 @@ public class SesionService : ISesionService
     }
 
     public async Task<bool> ValidarSesionAsync(Guid sesionId, CancellationToken cancellationToken = default)
+        => await ValidarYObtenerUsuarioAsync(sesionId, cancellationToken) is not null;
+
+    public async Task<UsuarioAutenticado?> ValidarYObtenerUsuarioAsync(Guid sesionId, CancellationToken cancellationToken = default)
     {
         var ahora = DateTime.UtcNow;
 
         return await _context.Sesiones
             .AsNoTracking()
             .Where(s => s.Id == sesionId && !s.Revocada && s.FechaExpiracion > ahora)
-            .Join(_context.Usuarios, s => s.UsuarioId, u => u.Id, (s, u) => u.Activo)
-            .AnyAsync(activo => activo, cancellationToken);
+            .Join(_context.Usuarios.Where(u => u.Activo), s => s.UsuarioId, u => u.Id,
+                (s, u) => new UsuarioAutenticado(u.Id, u.Nombre, u.Correo, u.Rol))
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task CerrarSesionAsync(Guid sesionId, CancellationToken cancellationToken = default)

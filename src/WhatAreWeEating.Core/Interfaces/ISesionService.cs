@@ -31,6 +31,12 @@ public interface ISesionService
     Task<bool> ValidarSesionAsync(Guid sesionId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Igual que ValidarSesionAsync, pero devuelve al usuario con su rol ACTUAL leído de la BD
+    /// (null si la sesión no es válida). Es la fuente del rol para autorizar (RD-06).
+    /// </summary>
+    Task<UsuarioAutenticado?> ValidarYObtenerUsuarioAsync(Guid sesionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Revoca la sesión indicada (RF-CA-18).
     /// </summary>
     Task CerrarSesionAsync(Guid sesionId, CancellationToken cancellationToken = default);

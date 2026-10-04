@@ -2,67 +2,86 @@
 
 Sistema de gestión y planificación de recetas — Programación III · ITLA · 2026-C-3.
 
-Permite gestionar y organizar un catálogo de recetas, registrar los ingredientes disponibles en la despensa de cada usuario y determinar qué recetas se pueden preparar con lo que hay disponible. Construido con .NET 10, Entity Framework Core y SQL Server, dividido en un **Core** transversal (control de acceso, permisos, documentos, notificaciones, reportes, auditoría) y un **módulo de negocio** de recetas, independiente del Core.
+Permite gestionar y organizar un catálogo de recetas, registrar los ingredientes disponibles en la despensa de cada usuario y determinar qué recetas se pueden preparar con lo que hay disponible. Construido con .NET 10, Entity Framework Core y SQL Server, dividido en un **Core** transversal (control de acceso, permisos, documentos, notificaciones, reportes, auditoría), un **módulo de negocio** de recetas independiente y una **API Web** host.
 
 ## Estructura del repositorio
 
 ```
 WhatAreWeEating.slnx
 src/
-├── WhatAreWeEating.Core            # Piezas transversales (aún sin entidades propias)
+├── WhatAreWeEating.Api             # Host Web API, middleware de errores, Swagger
+├── WhatAreWeEating.Core            # Piezas transversales (sin dependencias de negocio/infra)
 ├── WhatAreWeEating.Recetas         # Dominio: recetas, ingredientes, despensa
-└── WhatAreWeEating.Infrastructure  # AppDbContext, Configurations/, Migrations/
+└── WhatAreWeEating.Infrastructure  # AppDbContext, Configurations/, Migrations/, DI
 ```
 
-## Cómo ejecutar el proyecto
+## Variables de entorno
 
-> **Nota:** el repositorio todavía no tiene un proyecto host/API ejecutable — Control de acceso, el primer punto de entrada real, se construye en las semanas 2 a 4. Por ahora "ejecutar" significa restaurar dependencias, compilar y aplicar las migraciones contra SQL Server. Esta sección se actualiza con el comando `dotnet run` en cuanto exista el host.
+> **Importante (RD-10):** Nunca incluir contraseñas, secretos ni cadenas de conexión con credenciales dentro del código fuente ni en archivos versionados (`appsettings.json`). Configurar siempre mediante variables de entorno en el host o sesión local.
+
+| Variable | Propósito |
+| :--- | :--- |
+| `ConnectionStrings__Default` | Cadena de conexión principal hacia la base de datos SQL Server utilizada por EF Core (`AppDbContext`). |
+| `ASPNETCORE_ENVIRONMENT` | Entorno de ejecución de ASP.NET Core (`Development`, `Staging`, `Production`). Habilita la interfaz de Swagger y documentación OpenAPI en `Development`. |
+
+## Cómo ejecutar el proyecto
 
 ### Requisitos
 
 - .NET 10 SDK
-- SQL Server (local o en contenedor) accesible
-- Herramienta `dotnet-ef`: `dotnet tool install --global dotnet-ef`
+- SQL Server (local, instancia Express o contenedor Docker)
+- Herramienta `dotnet-ef` (opcional para migraciones): `dotnet tool install --global dotnet-ef`
 
 ### Pasos
 
-1. Clonar el repositorio
+1. **Clonar el repositorio:**
    ```bash
    git clone <url-del-repo>
    cd WhatAreWeEating
    ```
 
-2. Restaurar dependencias
+2. **Restaurar dependencias:**
    ```bash
    dotnet restore
    ```
 
-3. Configurar la cadena de conexión por variable de entorno — no va en `appsettings` versionado (RD-10)
-   ```bash
-   # bash/zsh
-   export ConnectionStrings__DefaultConnection="Server=localhost;Database=WhatAreWeEating;User Id=sa;Password=<tu-password>;TrustServerCertificate=True;"
-   ```
+3. **Configurar la variable de entorno para la conexión:**
    ```powershell
-   # PowerShell
-   $env:ConnectionStrings__DefaultConnection = "Server=localhost;Database=WhatAreWeEating;Trusted_Connection=True;TrustServerCertificate=True;"
+   # PowerShell (Windows)
+   $env:ConnectionStrings__Default = "Server=localhost;Database=WhatAreWeEating;Trusted_Connection=True;TrustServerCertificate=True;"
+   $env:ASPNETCORE_ENVIRONMENT = "Development"
+   ```
+   ```bash
+   # Bash / Linux / macOS
+   export ConnectionStrings__Default="Server=localhost;Database=WhatAreWeEating;User Id=sa;Password=<tu-password>;TrustServerCertificate=True;"
+   export ASPNETCORE_ENVIRONMENT="Development"
    ```
 
-4. Compilar la solución
+4. **Compilar la solución:**
    ```bash
    dotnet build
    ```
 
-5. Aplicar las migraciones
+5. **Aplicar las migraciones:**
    ```bash
    dotnet ef database update --project src/WhatAreWeEating.Infrastructure
    ```
 
-### Verificado antes de abrir el pull request
+6. **Ejecutar la API:**
+   ```bash
+   dotnet run --project src/WhatAreWeEating.Api
+   ```
 
-- [ ] `dotnet restore` sin errores
-- [ ] `dotnet build` sin errores
-- [ ] `dotnet ef database update` aplica `ModeloInicialRecetas` sin errores
-- [ ] Las 6 tablas del módulo de negocio existen en SQL Server tras el update
+7. **Explorar documentación interactiva (Swagger UI):**
+   - Abrir el navegador en `https://localhost:<puerto>/swagger`.
+
+---
+
+## Cómo provocar cada criterio
+
+<!-- Sección reservada para documentar los pasos y escenarios de prueba de cada criterio de aceptación y requisitos funcionales/no-funcionales del sistema. -->
+
+---
 
 ## Diseño de componentes
 

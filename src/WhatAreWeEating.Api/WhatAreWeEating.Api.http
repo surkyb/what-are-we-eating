@@ -1,0 +1,6 @@
+@WhatAreWeEating.Api_HostAddress = http://localhost:5228
+
+GET {{WhatAreWeEating.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

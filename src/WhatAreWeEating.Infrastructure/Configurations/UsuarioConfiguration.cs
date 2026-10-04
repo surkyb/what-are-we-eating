@@ -38,6 +38,9 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(u => u.FechaCreacion)
             .IsRequired();
 
+        builder.Property(u => u.FechaActivacion)
+            .IsRequired(false);
+
         builder.Property(u => u.IntentosFallidos)
             .IsRequired();
 

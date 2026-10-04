@@ -11,6 +11,7 @@ public class Usuario
     public bool Activo { get; set; } = false;
     public RolUsuario Rol { get; set; } = RolUsuario.Estandar;
     public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
+    public DateTime? FechaActivacion { get; set; }
     public int IntentosFallidos { get; set; } = 0;
     public DateTime? BloqueadoHasta { get; set; }
 }

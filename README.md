@@ -59,7 +59,7 @@ Los comandos se ejecutan desde la raíz del repositorio. Los ejemplos usan Power
 
 1. **Clonar y restaurar:**
    ```powershell
-   git clone <url-del-repo>
+   git clone <url-del-repo> WhatAreWeEating
    cd WhatAreWeEating
    dotnet restore
    ```

@@ -37,6 +37,10 @@ public static class DependencyInjection
         services.AddSingleton(_ => JwtOptionsLoader.Cargar(configuration));
         services.AddScoped<ISesionService, SesionService>();
 
+        // Administración de usuarios y siembra del primer administrador
+        services.AddScoped<IUsuarioAdminService, UsuarioAdminService>();
+        services.AddScoped<AdminSeeder>();
+
         return services;
     }
 }

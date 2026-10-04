@@ -292,7 +292,7 @@ public class AuthService : IAuthService
         var usuario = await _context.Usuarios
             .FirstOrDefaultAsync(u => u.Id == tokenEntity.UsuarioId, cancellationToken);
 
-        if (usuario == null)
+        if (usuario == null || usuario.FechaActivacion != null)
         {
             return (false, "El enlace de activación es inválido o ha expirado.");
         }
@@ -302,6 +302,7 @@ public class AuthService : IAuthService
         {
             tokenEntity.Usado = true;
             usuario.Activo = true;
+            usuario.FechaActivacion = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -330,8 +331,9 @@ public class AuthService : IAuthService
         var usuario = await _context.Usuarios
             .FirstOrDefaultAsync(u => u.Correo == normalizedEmail, cancellationToken);
 
-        // RF-CA-17: Si el usuario existe y está inactivo, invalidar token anterior y crear uno nuevo
-        if (usuario != null && !usuario.Activo)
+        // RF-CA-17: solo si el usuario existe, está inactivo y nunca fue activado. Un usuario desactivado
+        // por un Administrador (FechaActivacion con valor) no puede volver a activarse por un flujo público
+        if (usuario != null && !usuario.Activo && usuario.FechaActivacion is null)
         {
             var tokensAnteriores = await _context.TokensUnUso
                 .Where(t => t.UsuarioId == usuario.Id && t.Tipo == TipoToken.Activacion && !t.Usado)

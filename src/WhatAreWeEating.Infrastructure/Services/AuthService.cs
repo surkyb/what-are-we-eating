@@ -31,6 +31,7 @@ public class AuthService : IAuthService
     }
 
     private const string MensajeCodigoInvalido = "El código de recuperación es inválido o ha expirado.";
+    private const string MensajeCorreoDuplicado = "El correo electrónico ya se encuentra registrado.";
 
     public async Task<(bool Success, string? ErrorMessage)> SolicitarRecuperacionAsync(
         string correo,
@@ -207,7 +208,7 @@ public class AuthService : IAuthService
 
         if (existeCorreo)
         {
-            return (false, "El correo electrónico ya se encuentra registrado.");
+            return (false, MensajeCorreoDuplicado);
         }
 
         var passwordHash = _passwordHasher.HashPassword(password);
@@ -262,12 +263,21 @@ public class AuthService : IAuthService
 
             return (true, null);
         }
+        catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
+        {
+            // Registros simultáneos con el mismo correo: el índice único de Correo los detiene (RF-CA-01)
+            await transaction.RollbackAsync(cancellationToken);
+            return (false, MensajeCorreoDuplicado);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
     }
+
+    private static bool EsViolacionDeIndiceUnico(DbUpdateException ex)
+        => ex.InnerException is Microsoft.Data.SqlClient.SqlException sql && sql.Number is 2601 or 2627;
 
     public async Task<(bool Success, string? ErrorMessage)> ActivarCuentaAsync(
         string token,

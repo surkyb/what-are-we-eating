@@ -10,4 +10,8 @@ public record LoginResponse(string Token, string TipoToken, DateTime Expira);
 
 public record MeResponse(string Nombre, string Correo, string Rol);
 
+public record UsuarioAdminResponse(Guid Id, string Nombre, string Correo, string Rol, bool Activo);
+
+public record CambiarRolRequest(string Rol);
+
 public record MensajeResponse(string Mensaje);

@@ -4,6 +4,7 @@ using WhatAreWeEating.Api.Endpoints;
 using WhatAreWeEating.Api.Middlewares;
 using WhatAreWeEating.Core.Interfaces;
 using WhatAreWeEating.Infrastructure;
+using WhatAreWeEating.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,6 +46,19 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// Siembra del primer administrador (Seed__AdminEmail / Seed__AdminName / Seed__AdminPassword)
+try
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<AdminSeeder>();
+    Console.WriteLine(await seeder.SembrarAsync(AdminSeedOptions.Cargar(app.Configuration)));
+}
+catch (Exception ex)
+{
+    // Solo el tipo: el mensaje podría incluir datos de conexión
+    Console.Error.WriteLine($"Aviso: no se pudo ejecutar la siembra del administrador ({ex.GetType().Name}). Verifique la base de datos y las migraciones.");
+}
+
 // Middleware global de manejo de excepciones (RD-08)
 app.UseErrorHandling();
 
@@ -62,6 +76,7 @@ app.UseAuthorization();
 
 // Endpoints de autenticación (registro, activación, login, me, logout)
 app.MapAuthEndpoints();
+app.MapAdminEndpoints();
 
 // Endpoint de prueba / estado de la API
 app.MapGet("/", () => Results.Ok(new { status = "Healthy", service = "WhatAreWeEating API" }))

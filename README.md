@@ -192,6 +192,34 @@ Invoke-RestMethod "$u/<id>/reactivar" -Method Post -Headers $h
 - Un Administrador no puede desactivarse ni cambiarse el rol a sí mismo (`409`).
 - Tras desactivar, el token del usuario devuelve `401` en la siguiente petición y su login devuelve `403`.
 
+### Recuperación, restablecimiento y cambio de contraseña
+
+El envío de correos lo hace el MailWorker; estos endpoints solo encolan el mensaje. Para leer el código en pruebas locales, consulta el cuerpo del correo encolado (`SELECT TOP 1 Cuerpo FROM CorreosEnCola WHERE Destinatario = '<correo>' ORDER BY FechaCreacion DESC`) o ejecuta el MailWorker.
+
+```powershell
+$api = "http://localhost:5228"
+
+# 1) Recuperar (sin sesión): misma respuesta 200 exista o no el correo, esté activo o no.
+#    Formato de correo inválido: 400. El código dura 30 minutos y los anteriores quedan invalidados.
+Invoke-RestMethod "$api/auth/recuperar" -Method Post -ContentType 'application/json' `
+  -Body '{"correo":"ana@example.com"}'
+
+# 2) Restablecer (sin sesión) con el código del correo.
+#    Código inexistente, usado o vencido: 400. Política de contraseña incumplida: 400.
+#    Si es válido: cambia la contraseña, reinicia intentos y bloqueo, y revoca todas las sesiones.
+Invoke-RestMethod "$api/auth/restablecer" -Method Post -ContentType 'application/json' `
+  -Body '{"codigo":"<codigo-del-correo>","passwordNueva":"<nueva-contraseña>"}'
+
+# 3) Cambiar contraseña (con sesión). Contraseña actual incorrecta: 400 y nada cambia.
+#    Si sale bien se revocan TODAS las sesiones, incluida la actual: hay que iniciar sesión de nuevo.
+Invoke-RestMethod "$api/auth/cambiar-password" -Method Post -Headers @{ Authorization = "Bearer $t" } `
+  -ContentType 'application/json' -Body '{"passwordActual":"<actual>","passwordNueva":"<nueva>"}'
+
+# 4) Forzar restablecimiento (solo Administrador): invalida la contraseña, revoca sesiones y encola un código.
+#    Inexistente: 404. A uno mismo o usuario desactivado: 409.
+Invoke-RestMethod "$api/admin/usuarios/<id>/forzar-restablecimiento" -Method Post -Headers @{ Authorization = "Bearer $a" }
+```
+
 <!-- Sección reservada para documentar los pasos y escenarios de prueba de cada criterio de aceptación y requisitos funcionales/no-funcionales del sistema. -->
 
 ---

@@ -93,6 +93,29 @@ public static class AdminEndpoints
         .Produces(StatusCodes.Status403Forbidden)
         .Produces<MensajeResponse>(StatusCodes.Status404NotFound);
 
+        // RF-CA-13
+        group.MapPost("/{id:guid}/forzar-restablecimiento", async (
+            Guid id,
+            ClaimsPrincipal user,
+            IUsuarioAdminService admin,
+            CancellationToken cancellationToken) =>
+        {
+            if (!user.TryGetUsuarioId(out var actorId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var resultado = await admin.ForzarRestablecimientoAsync(actorId, id, cancellationToken);
+            return ToResult(resultado, "Contraseña invalidada, sesiones revocadas y código de recuperación encolado por correo.");
+        })
+        .RequiereOperacion(PoliciesCatalogo.Operaciones.ForzarRestablecimiento)
+        .WithName("ForzarRestablecimiento")
+        .Produces<MensajeResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .Produces(StatusCodes.Status403Forbidden)
+        .Produces<MensajeResponse>(StatusCodes.Status404NotFound)
+        .Produces<MensajeResponse>(StatusCodes.Status409Conflict);
+
         return app;
     }
 

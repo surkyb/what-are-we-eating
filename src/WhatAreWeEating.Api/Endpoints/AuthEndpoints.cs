@@ -166,6 +166,96 @@ public static class AuthEndpoints
         .Produces<MensajeResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status401Unauthorized);
 
+        // RF-CA-09, RF-CA-10: respuesta idéntica exista o no el correo
+        group.MapPost("/recuperar", async (
+            RecuperarRequest request,
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Correo) || request.Correo.Length > 256)
+            {
+                return Results.BadRequest(new MensajeResponse("El correo electrónico es obligatorio y debe tener un formato válido."));
+            }
+
+            var (success, errorMessage) = await authService.SolicitarRecuperacionAsync(request.Correo, cancellationToken);
+            if (!success)
+            {
+                return Results.BadRequest(new MensajeResponse(errorMessage ?? "El correo electrónico provisto no es válido."));
+            }
+
+            return Results.Ok(new MensajeResponse(
+                "Si el correo corresponde a una cuenta activa, se ha enviado un código de recuperación."));
+        })
+        .WithName("RecuperarPassword")
+        .Produces<MensajeResponse>(StatusCodes.Status200OK)
+        .Produces<MensajeResponse>(StatusCodes.Status400BadRequest);
+
+        // RF-CA-10, RF-CA-11, RF-CA-12, RF-CA-14
+        group.MapPost("/restablecer", async (
+            RestablecerRequest request,
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Codigo) || string.IsNullOrWhiteSpace(request.PasswordNueva))
+            {
+                return Results.BadRequest(new MensajeResponse("El código y la nueva contraseña son obligatorios."));
+            }
+
+            if (request.Codigo.Length > 200 || request.PasswordNueva.Length > 256)
+            {
+                return Results.BadRequest(new MensajeResponse("El código o la contraseña exceden la longitud permitida."));
+            }
+
+            var (success, errorMessage) = await authService.RestablecerPasswordAsync(request.Codigo, request.PasswordNueva, cancellationToken);
+            if (!success)
+            {
+                return Results.BadRequest(new MensajeResponse(errorMessage ?? "No fue posible restablecer la contraseña."));
+            }
+
+            return Results.Ok(new MensajeResponse("Contraseña restablecida. Inicie sesión con la nueva contraseña."));
+        })
+        .WithName("RestablecerPassword")
+        .Produces<MensajeResponse>(StatusCodes.Status200OK)
+        .Produces<MensajeResponse>(StatusCodes.Status400BadRequest);
+
+        // RF-CA-12, RF-CA-14, RF-CA-22
+        group.MapPost("/cambiar-password", async (
+            CambiarPasswordRequest request,
+            ClaimsPrincipal user,
+            IAuthService authService,
+            CancellationToken cancellationToken) =>
+        {
+            if (!user.TryGetUsuarioId(out var usuarioId))
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request.PasswordActual) || string.IsNullOrWhiteSpace(request.PasswordNueva))
+            {
+                return Results.BadRequest(new MensajeResponse("La contraseña actual y la nueva son obligatorias."));
+            }
+
+            if (request.PasswordActual.Length > 256 || request.PasswordNueva.Length > 256)
+            {
+                return Results.BadRequest(new MensajeResponse("Las contraseñas exceden la longitud permitida."));
+            }
+
+            var (success, errorMessage) = await authService.CambiarPasswordAsync(
+                usuarioId, request.PasswordActual, request.PasswordNueva, cancellationToken);
+
+            if (!success)
+            {
+                return Results.BadRequest(new MensajeResponse(errorMessage ?? "No fue posible cambiar la contraseña."));
+            }
+
+            return Results.Ok(new MensajeResponse("Contraseña actualizada. Todas las sesiones fueron cerradas; inicie sesión de nuevo."));
+        })
+        .RequiereOperacion(PoliciesCatalogo.Operaciones.CambiarPassword)
+        .WithName("CambiarPassword")
+        .Produces<MensajeResponse>(StatusCodes.Status200OK)
+        .Produces<MensajeResponse>(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status401Unauthorized);
+
         return app;
     }
 

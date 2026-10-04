@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WhatAreWeEating.Core.Entities;
 using WhatAreWeEating.Recetas.Entities;
 
 namespace WhatAreWeEating.Infrastructure;
@@ -9,6 +10,12 @@ public class AppDbContext : DbContext
     {
     }
 
+    // Core
+    public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<TokenUnUso> TokensUnUso => Set<TokenUnUso>();
+    public DbSet<CorreoEnCola> CorreosEnCola => Set<CorreoEnCola>();
+
+    // Recetas
     public DbSet<Receta> Recetas => Set<Receta>();
     public DbSet<Ingrediente> Ingredientes => Set<Ingrediente>();
     public DbSet<Categoria> Categorias => Set<Categoria>();

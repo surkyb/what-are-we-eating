@@ -1,6 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using WhatAreWeEating.Core.Interfaces;
+using WhatAreWeEating.Core.Services;
+using WhatAreWeEating.Infrastructure.Services;
 
 namespace WhatAreWeEating.Infrastructure;
 
@@ -19,6 +22,15 @@ public static class DependencyInjection
                 options.UseSqlServer(connectionString);
             }
         });
+
+        // Servicios transversales del Core
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
+        services.AddSingleton<IPasswordValidator, PasswordValidator>();
+        services.AddSingleton<IEmailValidator, EmailValidator>();
+        services.AddSingleton<ITokenService, TokenService>();
+
+        // Servicio de autenticación y control de acceso
+        services.AddScoped<IAuthService, AuthService>();
 
         return services;
     }

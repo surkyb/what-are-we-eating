@@ -29,4 +29,10 @@ public interface IUsuarioAdminService
 
     /// <summary>Reactiva a un usuario desactivado.</summary>
     Task<AdminResultado> ReactivarAsync(Guid usuarioId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Invalida la contraseña actual (ninguna contraseña podrá producir el nuevo hash), revoca las sesiones
+    /// y encola un código de recuperación (RF-CA-13). Un administrador no puede forzarse a sí mismo.
+    /// </summary>
+    Task<AdminResultado> ForzarRestablecimientoAsync(Guid actorId, Guid usuarioId, CancellationToken cancellationToken = default);
 }

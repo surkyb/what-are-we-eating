@@ -15,12 +15,14 @@ public static class PoliciesCatalogo
         // Sesión: cualquier usuario autenticado (rol = null)
         public const string ConsultarPerfil = "auth.consultar-perfil";
         public const string CerrarSesion = "auth.cerrar-sesion";
+        public const string CambiarPassword = "auth.cambiar-password";
 
         // Administración de usuarios: solo Administrador
         public const string ListarUsuarios = "admin.usuarios.listar";
         public const string CambiarRolUsuario = "admin.usuarios.cambiar-rol";
         public const string DesactivarUsuario = "admin.usuarios.desactivar";
         public const string ReactivarUsuario = "admin.usuarios.reactivar";
+        public const string ForzarRestablecimiento = "admin.usuarios.forzar-restablecimiento";
     }
 
     /// <summary>operación -> rol requerido (null = cualquier usuario autenticado).</summary>
@@ -28,11 +30,13 @@ public static class PoliciesCatalogo
     {
         [Operaciones.ConsultarPerfil] = null,
         [Operaciones.CerrarSesion] = null,
+        [Operaciones.CambiarPassword] = null,
 
         [Operaciones.ListarUsuarios] = RolUsuario.Administrador,
         [Operaciones.CambiarRolUsuario] = RolUsuario.Administrador,
         [Operaciones.DesactivarUsuario] = RolUsuario.Administrador,
         [Operaciones.ReactivarUsuario] = RolUsuario.Administrador,
+        [Operaciones.ForzarRestablecimiento] = RolUsuario.Administrador,
     };
 
     public static void Registrar(AuthorizationOptions options)

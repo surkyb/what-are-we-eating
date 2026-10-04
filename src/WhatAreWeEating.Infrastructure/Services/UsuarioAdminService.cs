@@ -8,11 +8,60 @@ public class UsuarioAdminService : IUsuarioAdminService
 {
     private readonly AppDbContext _context;
     private readonly ISesionService _sesionService;
+    private readonly ITokenService _tokenService;
 
-    public UsuarioAdminService(AppDbContext context, ISesionService sesionService)
+    public UsuarioAdminService(AppDbContext context, ISesionService sesionService, ITokenService tokenService)
     {
         _context = context;
         _sesionService = sesionService;
+        _tokenService = tokenService;
+    }
+
+    public async Task<AdminResultado> ForzarRestablecimientoAsync(Guid actorId, Guid usuarioId, CancellationToken cancellationToken = default)
+    {
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == usuarioId, cancellationToken);
+        if (usuario is null)
+        {
+            return new AdminResultado(ResultadoAdmin.NoEncontrado, "El usuario no existe.");
+        }
+
+        // Forzarse a sí mismo dejaría al administrador sin contraseña ni sesión, dependiendo del correo
+        if (usuario.Id == actorId)
+        {
+            return new AdminResultado(ResultadoAdmin.OperacionNoPermitida,
+                "Un administrador no puede forzar su propio restablecimiento; use el cambio de contraseña.");
+        }
+
+        if (!usuario.Activo)
+        {
+            return new AdminResultado(ResultadoAdmin.OperacionNoPermitida,
+                "El usuario está desactivado; reactívelo antes de forzar su restablecimiento.");
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            usuario.PasswordHash = CodigoRecuperacion.GenerarHashInutilizable();
+            usuario.IntentosFallidos = 0;
+            usuario.BloqueadoHasta = null;
+
+            await CodigoRecuperacion.EncolarAsync(
+                _context, _tokenService, usuario,
+                "Restablecimiento de contraseña requerido - WhatAreWeEating",
+                "Un administrador ha invalidado tu contraseña actual. Debes establecer una nueva.",
+                cancellationToken);
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await _sesionService.RevocarSesionesDeUsuarioAsync(usuario.Id, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+
+        return new AdminResultado(ResultadoAdmin.Ok);
     }
 
     public async Task<IReadOnlyList<UsuarioAdminDto>> ListarAsync(CancellationToken cancellationToken = default)

@@ -14,4 +14,10 @@ public record UsuarioAdminResponse(Guid Id, string Nombre, string Correo, string
 
 public record CambiarRolRequest(string Rol);
 
+public record RecuperarRequest(string Correo);
+
+public record RestablecerRequest(string Codigo, string PasswordNueva);
+
+public record CambiarPasswordRequest(string PasswordActual, string PasswordNueva);
+
 public record MensajeResponse(string Mensaje);

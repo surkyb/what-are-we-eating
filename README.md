@@ -45,7 +45,7 @@ Con SQL Server Express la instancia suele llamarse `localhost\SQLEXPRESS`; ajust
 | `Seed__AdminEmail` | No | API | Correo del primer Administrador, que se crea al arrancar. Si falta, no se siembra nada y se imprime un aviso. Si el correo ya existe, no se modifica. |
 | `Seed__AdminName` | No | API | Nombre del administrador sembrado. Por defecto `Administrador`. |
 | `Seed__AdminPassword` | No | API | Contraseña del administrador sembrado; debe cumplir la política de contraseñas y nunca se imprime. |
-| `App__BaseUrl` | No | API | URL base de la API, usada para armar el enlace de activación de los correos en cola. Por defecto, la del propio request. |
+| `App__BaseUrl` | No | API | URL base de la API, usada para armar el enlace de activación de los correos en cola. Por defecto `http://localhost:5228` (nunca se toma el Host del request). |
 | `Smtp__Host` | Sí | MailWorker | Servidor SMTP con el que se envían los correos en cola. |
 | `Smtp__Port` | Sí | MailWorker | Puerto del servidor SMTP (número entre 1 y 65535). |
 | `Smtp__User` | Sí | MailWorker | Usuario con el que el worker se autentica en el servidor SMTP. |

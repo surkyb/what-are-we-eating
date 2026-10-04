@@ -17,10 +17,9 @@ public static class AuthEndpoints
             RegistroRequest request,
             IAuthService authService,
             IConfiguration configuration,
-            HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var baseUrl = GetBaseUrl(configuration, httpContext);
+            var baseUrl = GetBaseUrl(configuration);
             var (success, errorMessage) = await authService.RegistrarUsuarioAsync(
                 request.Nombre,
                 request.Correo,
@@ -69,10 +68,9 @@ public static class AuthEndpoints
             ReenviarActivacionRequest request,
             IAuthService authService,
             IConfiguration configuration,
-            HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var baseUrl = GetBaseUrl(configuration, httpContext);
+            var baseUrl = GetBaseUrl(configuration);
             var (success, errorMessage) = await authService.ReenviarActivacionAsync(
                 request.Correo,
                 baseUrl,
@@ -260,14 +258,12 @@ public static class AuthEndpoints
         return app;
     }
 
-    private static string GetBaseUrl(IConfiguration configuration, HttpContext httpContext)
+    // Nunca se usa el Host del request: una cabecera falsa podría apuntar el enlace a otro dominio
+    private const string BaseUrlPorDefecto = "http://localhost:5228";
+
+    private static string GetBaseUrl(IConfiguration configuration)
     {
         var configUrl = configuration["App:BaseUrl"] ?? configuration["App__BaseUrl"];
-        if (!string.IsNullOrWhiteSpace(configUrl))
-        {
-            return configUrl;
-        }
-
-        return $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
+        return string.IsNullOrWhiteSpace(configUrl) ? BaseUrlPorDefecto : configUrl;
     }
 }

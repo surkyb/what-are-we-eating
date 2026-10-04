@@ -2,6 +2,7 @@ using System.Security.Claims;
 using WhatAreWeEating.Api.Auth;
 using WhatAreWeEating.Api.DTOs;
 using WhatAreWeEating.Core.Interfaces;
+using WhatAreWeEating.Core.Services;
 
 namespace WhatAreWeEating.Api.Endpoints;
 
@@ -101,7 +102,7 @@ public static class AuthEndpoints
                 return Results.BadRequest(new MensajeResponse("El correo y la contraseña son obligatorios."));
             }
 
-            if (request.Correo.Length > 256 || request.Password.Length > 256)
+            if (request.Correo.Length > 256 || request.Password.Length > PasswordValidator.LongitudMaxima)
             {
                 return Results.BadRequest(new MensajeResponse("El correo o la contraseña exceden la longitud permitida."));
             }
@@ -201,7 +202,7 @@ public static class AuthEndpoints
                 return Results.BadRequest(new MensajeResponse("El código y la nueva contraseña son obligatorios."));
             }
 
-            if (request.Codigo.Length > 200 || request.PasswordNueva.Length > 256)
+            if (request.Codigo.Length > 200 || request.PasswordNueva.Length > PasswordValidator.LongitudMaxima)
             {
                 return Results.BadRequest(new MensajeResponse("El código o la contraseña exceden la longitud permitida."));
             }
@@ -235,7 +236,7 @@ public static class AuthEndpoints
                 return Results.BadRequest(new MensajeResponse("La contraseña actual y la nueva son obligatorias."));
             }
 
-            if (request.PasswordActual.Length > 256 || request.PasswordNueva.Length > 256)
+            if (request.PasswordActual.Length > PasswordValidator.LongitudMaxima || request.PasswordNueva.Length > PasswordValidator.LongitudMaxima)
             {
                 return Results.BadRequest(new MensajeResponse("Las contraseñas exceden la longitud permitida."));
             }

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using WhatAreWeEating.Recetas.Entities;
+using WhatAreWeEating.Recetas.Enums;
 
 namespace WhatAreWeEating.Infrastructure.Configurations;
 
@@ -22,9 +23,10 @@ public class RecetaConfiguration : IEntityTypeConfiguration<Receta>
         builder.Property(r => r.ImagenUrl)
             .HasMaxLength(500);
 
-        builder.Property(r => r.EstadoPublicacion)
+        builder.Property(r => r.Estado)
             .HasConversion<string>()
             .HasMaxLength(30)
+            .HasDefaultValue(EstadoReceta.Borrador)
             .IsRequired();
 
         builder.HasOne(r => r.Categoria)

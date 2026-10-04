@@ -13,7 +13,7 @@ public class Receta
     // Apunta a un usuario del Core; sin navegación porque el Core aun no expone una entidad Usuario.
     public Guid AutorId { get; set; }
 
-    public EstadoPublicacion EstadoPublicacion { get; set; }
+    public EstadoReceta Estado { get; set; } = EstadoReceta.Borrador;
 
     public Guid CategoriaId { get; set; }
     public Categoria Categoria { get; set; } = null!;

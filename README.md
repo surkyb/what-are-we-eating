@@ -318,7 +318,7 @@ erDiagram
         string descripcion
         string instrucciones
         Guid autorId
-        string estadoPublicacion
+        string estado
         Guid categoriaId
     }
     INGREDIENTE {

@@ -193,9 +193,6 @@ Llamar Post '/auth/registro' @{ nombre = 'X'; correo = 'hola'; password = $pw }
 # RF-CA-14 política de contraseña (mín. 8 caracteres, una letra y un número): 400
 Llamar Post '/auth/registro' @{ nombre = 'X'; correo = 'x@example.com'; password = 'abc' }
 
-# RF-CA-02 la contraseña nunca se guarda en claro: la base solo tiene un hash PBKDF2 con sal ("iteraciones.sal.hash")
-Sql "SELECT LEFT(PasswordHash,7)+'...' FROM Usuarios WHERE Correo='ana@example.com'"     # 100000....
-
 # RF-CA-15 una cuenta sin activar no entra aunque la contraseña sea correcta (403) y el correo de activación
 # solo queda encolado (Pendiente), nunca se envía dentro de la operación
 Llamar Post '/auth/login' @{ correo = 'ana@example.com'; password = $pw }
@@ -218,6 +215,11 @@ Llamar Get "/auth/activar?token=$viejo"                  # 400: el token viejo q
 $nuevo = TokenActivacion 'carla@example.com'
 Sql "UPDATE TokensUnUso SET FechaVencimiento = DATEADD(MINUTE,-1,SYSUTCDATETIME()) WHERE UsuarioId=(SELECT Id FROM Usuarios WHERE Correo='carla@example.com') AND Usado=0" | Out-Null
 Llamar Get "/auth/activar?token=$nuevo"
+
+# RF-CA-02 la contraseña se guarda con hash y sal, nunca en claro: Ana y Carla usaron la MISMA contraseña
+# y aun así tienen valores almacenados distintos (formato "iteraciones.sal.hash")
+Sql "SELECT Correo, LEFT(PasswordHash,7)+'...' AS Formato FROM Usuarios WHERE Correo IN ('ana@example.com','carla@example.com')"   # 100000....
+Sql "SELECT COUNT(DISTINCT PasswordHash) AS HashesDistintos, COUNT(*) AS Usuarios FROM Usuarios WHERE Correo IN ('ana@example.com','carla@example.com')"   # 2 y 2
 ```
 
 ### 2. Sesión: login, me, logout y bloqueo
@@ -267,14 +269,20 @@ Llamar Get '/admin/usuarios'
 $lista = Llamar Get '/admin/usuarios' $null $a
 (($lista.Substring(4) | ConvertFrom-Json)[0].PSObject.Properties.Name) -join ', '
 
-# RF-CA-04 cambiar rol (solo "Administrador" o "Estandar"; otro valor: 400)
+# RF-CA-04 hay dos roles (Administrador y Estándar) y todo usuario tiene exactamente uno: consulta el rol de cada usuario
+Sql "SELECT Correo, Rol FROM Usuarios ORDER BY Correo"
+Sql "SELECT COUNT(*) AS UsuariosSinRolValido FROM Usuarios WHERE Rol IS NULL OR Rol NOT IN ('Administrador','Estandar')"     # 0
+
+# RF-CA-08 el cambio de rol está reservado al Administrador: un Estándar no puede cambiar ningún rol, ni el propio (403)
+Llamar Put "/admin/usuarios/$idAna/rol" @{ rol = 'Administrador' } $t           # Ana (Estándar) intenta cambiar su propio rol: 403
+Llamar Put "/admin/usuarios/$idBeto/rol" @{ rol = 'Administrador' } $t          # y el rol de otro usuario: 403
+# El Administrador sí puede cambiarlo (solo "Administrador" o "Estandar"; otro valor: 400)
 Llamar Put "/admin/usuarios/$idAna/rol" @{ rol = 'Root' } $a
 Llamar Put "/admin/usuarios/$idAna/rol" @{ rol = 'Administrador' } $a
 Llamar Get '/admin/usuarios' $null $t               # 200: el MISMO token de Ana ya tiene el rol nuevo (RD-06)
 Llamar Put "/admin/usuarios/$idAna/rol" @{ rol = 'Estandar' } $a
 Llamar Get '/admin/usuarios' $null $t               # 403 otra vez
-
-# RF-CA-08 usuario inexistente: 404 controlado
+# Nota: cambiar el rol de un usuario inexistente devuelve 404 controlado
 Llamar Put "/admin/usuarios/$([guid]::NewGuid())/rol" @{ rol = 'Estandar' } $a
 
 # RF-CA-20 un Administrador no puede desactivarse a sí mismo (409). Desactivar a otro revoca sus sesiones

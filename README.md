@@ -24,6 +24,9 @@ src/
 | :--- | :--- |
 | `ConnectionStrings__Default` | Cadena de conexión principal hacia la base de datos SQL Server utilizada por EF Core (`AppDbContext`). |
 | `ASPNETCORE_ENVIRONMENT` | Entorno de ejecución de ASP.NET Core (`Development`, `Staging`, `Production`). Habilita la interfaz de Swagger y documentación OpenAPI en `Development`. |
+| `Jwt__Key` | Clave secreta con la que se firman los JWT de sesión (mínimo 32 caracteres). Obligatoria: si falta o es corta, la API no arranca y el mensaje nombra la variable sin mostrar su valor. |
+| `Jwt__Issuer` | (Opcional) Emisor del JWT. Por defecto `WhatAreWeEating`. |
+| `Jwt__Audience` | (Opcional) Audiencia del JWT. Por defecto `WhatAreWeEating.Api`. |
 | `Smtp__Host` | Servidor SMTP que usa el MailWorker para enviar los correos en cola. |
 | `Smtp__Port` | Puerto del servidor SMTP (número entre 1 y 65535). |
 | `Smtp__User` | Usuario con el que el MailWorker se autentica en el servidor SMTP. |
@@ -133,6 +136,32 @@ Comportamiento:
 ```
 
 `nombre` es obligatorio, no puede estar vacío ni ser solo espacios y admite máximo 100 caracteres; de lo contrario la API responde `400`.
+
+### Sesión: login, me y logout
+
+Antes de arrancar la API define `Jwt__Key` (mínimo 32 caracteres) en la misma sesión:
+```powershell
+$env:Jwt__Key = "<clave-aleatoria-de-32-o-mas-caracteres>"
+```
+
+**Login** (`POST /auth/login`, la cuenta debe estar activada):
+```json
+{ "correo": "ana@example.com", "password": "<contraseña>" }
+```
+Respuesta `200`: `{ "token": "...", "tipoToken": "Bearer", "expira": "..." }`. La sesión dura 8 horas.
+
+**Me** (`GET /auth/me`) con la cabecera `Authorization: Bearer <token>` (o el botón *Authorize* de Swagger, pegando solo el token). Devuelve `{ "nombre", "correo", "rol" }`; sin sesión válida, `401`.
+
+**Logout** (`POST /auth/logout`) con el mismo encabezado: responde `200` y revoca la sesión; usar el mismo token después da `401`.
+
+```powershell
+$t = (Invoke-RestMethod http://localhost:5228/auth/login -Method Post -ContentType 'application/json' `
+      -Body '{"correo":"ana@example.com","password":"<contraseña>"}').token
+Invoke-RestMethod http://localhost:5228/auth/me -Headers @{ Authorization = "Bearer $t" }
+Invoke-RestMethod http://localhost:5228/auth/logout -Method Post -Headers @{ Authorization = "Bearer $t" }
+```
+
+Respuestas de login: `401` correo inexistente o contraseña incorrecta (mismo mensaje en ambos casos), `403` cuenta no activa (solo con contraseña correcta), `423` cuenta bloqueada 15 minutos tras 5 fallos seguidos, `400` datos vacíos.
 
 <!-- Sección reservada para documentar los pasos y escenarios de prueba de cada criterio de aceptación y requisitos funcionales/no-funcionales del sistema. -->
 

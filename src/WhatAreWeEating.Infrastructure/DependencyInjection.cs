@@ -32,6 +32,11 @@ public static class DependencyInjection
         // Servicio de autenticación y control de acceso
         services.AddScoped<IAuthService, AuthService>();
 
+        // Sesiones y JWT. La clave se valida al resolver (la API la valida además al arrancar);
+        // así el MailWorker no necesita Jwt__Key.
+        services.AddSingleton(_ => JwtOptionsLoader.Cargar(configuration));
+        services.AddScoped<ISesionService, SesionService>();
+
         return services;
     }
 }

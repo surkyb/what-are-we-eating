@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using WhatAreWeEating.Api.Auth;
 using WhatAreWeEating.Api.DTOs;
 using WhatAreWeEating.Core.Interfaces;
 
@@ -87,6 +89,82 @@ public static class AuthEndpoints
         .WithName("ReenviarActivacion")
         .Produces<MensajeResponse>(StatusCodes.Status200OK)
         .Produces<MensajeResponse>(StatusCodes.Status400BadRequest);
+
+        // RF-CA-03, RF-CA-15, RF-CA-19
+        group.MapPost("/login", async (
+            LoginRequest request,
+            ISesionService sesionService,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Correo) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Results.BadRequest(new MensajeResponse("El correo y la contraseña son obligatorios."));
+            }
+
+            if (request.Correo.Length > 256 || request.Password.Length > 256)
+            {
+                return Results.BadRequest(new MensajeResponse("El correo o la contraseña exceden la longitud permitida."));
+            }
+
+            var resultado = await sesionService.LoginAsync(request.Correo, request.Password, cancellationToken);
+
+            return resultado.Resultado switch
+            {
+                ResultadoLogin.Exito => Results.Ok(new LoginResponse(resultado.Token!, "Bearer", resultado.Expira!.Value)),
+                ResultadoLogin.CuentaInactiva => Results.Json(new MensajeResponse(resultado.Mensaje), statusCode: StatusCodes.Status403Forbidden),
+                ResultadoLogin.CuentaBloqueada => Results.Json(new MensajeResponse(resultado.Mensaje), statusCode: StatusCodes.Status423Locked),
+                _ => Results.Json(new MensajeResponse(resultado.Mensaje), statusCode: StatusCodes.Status401Unauthorized)
+            };
+        })
+        .WithName("Login")
+        .Produces<LoginResponse>(StatusCodes.Status200OK)
+        .Produces<MensajeResponse>(StatusCodes.Status400BadRequest)
+        .Produces<MensajeResponse>(StatusCodes.Status401Unauthorized)
+        .Produces<MensajeResponse>(StatusCodes.Status403Forbidden)
+        .Produces<MensajeResponse>(StatusCodes.Status423Locked);
+
+        // RF-CA-07
+        group.MapGet("/me", async (
+            ClaimsPrincipal user,
+            ISesionService sesionService,
+            CancellationToken cancellationToken) =>
+        {
+            if (!user.TryGetUsuarioId(out var usuarioId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var usuario = await sesionService.ObtenerUsuarioAsync(usuarioId, cancellationToken);
+            if (usuario is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            return Results.Ok(new MeResponse(usuario.Nombre, usuario.Correo, usuario.Rol.ToString()));
+        })
+        .RequireAuthorization()
+        .WithName("ObtenerUsuarioAutenticado")
+        .Produces<MeResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status401Unauthorized);
+
+        // RF-CA-18
+        group.MapPost("/logout", async (
+            ClaimsPrincipal user,
+            ISesionService sesionService,
+            CancellationToken cancellationToken) =>
+        {
+            if (!user.TryGetSesionId(out var sesionId))
+            {
+                return Results.Unauthorized();
+            }
+
+            await sesionService.CerrarSesionAsync(sesionId, cancellationToken);
+            return Results.Ok(new MensajeResponse("Sesión cerrada correctamente."));
+        })
+        .RequireAuthorization()
+        .WithName("CerrarSesion")
+        .Produces<MensajeResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status401Unauthorized);
 
         return app;
     }

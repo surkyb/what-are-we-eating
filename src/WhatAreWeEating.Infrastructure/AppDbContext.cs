@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<TokenUnUso> TokensUnUso => Set<TokenUnUso>();
     public DbSet<CorreoEnCola> CorreosEnCola => Set<CorreoEnCola>();
+    public DbSet<Sesion> Sesiones => Set<Sesion>();
 
     // Recetas
     public DbSet<Receta> Recetas => Set<Receta>();

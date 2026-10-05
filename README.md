@@ -45,7 +45,7 @@ Con SQL Server Express la instancia suele llamarse `localhost\SQLEXPRESS`; ajust
 | `Seed__AdminEmail` | No | API | Correo del primer Administrador, que se crea al arrancar. Si falta, no se siembra nada y se imprime un aviso. Si el correo ya existe, no se modifica. |
 | `Seed__AdminName` | No | API | Nombre del administrador sembrado. Por defecto `Administrador`. |
 | `Seed__AdminPassword` | No | API | Contraseña del administrador sembrado; debe cumplir la política de contraseñas y nunca se imprime. |
-| `App__BaseUrl` | No | API | URL base de la API, usada para armar el enlace de activación de los correos en cola. Por defecto, la del propio request. |
+| `App__BaseUrl` | No | API | URL base de la API, usada para armar el enlace de activación de los correos en cola. Por defecto `http://localhost:5228` (nunca se toma el Host del request). |
 | `Smtp__Host` | Sí | MailWorker | Servidor SMTP con el que se envían los correos en cola. |
 | `Smtp__Port` | Sí | MailWorker | Puerto del servidor SMTP (número entre 1 y 65535). |
 | `Smtp__User` | Sí | MailWorker | Usuario con el que el worker se autentica en el servidor SMTP. |
@@ -59,7 +59,7 @@ Los comandos se ejecutan desde la raíz del repositorio. Los ejemplos usan Power
 
 1. **Clonar y restaurar:**
    ```powershell
-   git clone <url-del-repo>
+   git clone <url-del-repo> WhatAreWeEating
    cd WhatAreWeEating
    dotnet restore
    ```
@@ -78,6 +78,10 @@ Los comandos se ejecutan desde la raíz del repositorio. Los ejemplos usan Power
    $env:Seed__AdminPassword = "<contraseña-válida: mínimo 8 caracteres, con letra y número>"
    ```
    Con autenticación SQL en vez de la de Windows: `Server=localhost;Database=WhatAreWeEating;User Id=<usuario>;Password=<contraseña>;TrustServerCertificate=True;`.
+
+   Notas:
+   - Cada ventana de PowerShell genera una `Jwt__Key` nueva, así que al reiniciar la API desde otra ventana los tokens emitidos antes dan 401. Los usuarios y sus contraseñas sí sobreviven, porque están en la base. Para conservar también las sesiones, reutiliza la misma `Jwt__Key`.
+   - El texto entre `<...>` de `Seed__AdminPassword` es solo un marcador: reemplázalo por una contraseña real que cumpla la política y que coincida con la **contraseña de prueba 1** de la sección «Preparación».
 
 3. **Compilar:**
    ```powershell
@@ -117,6 +121,8 @@ dotnet run --project src/WhatAreWeEating.MailWorker
 Códigos de salida: `0` terminó de vaciar la cola (aunque algún envío haya fallado), `2` falta o es inválida alguna variable (el mensaje solo nombra la variable, nunca el valor), `1` error inesperado.
 
 Para probar sin un servidor real, ver [Servidor SMTP de prueba local](#servidor-smtp-de-prueba-local) más abajo.
+
+> **Antes de las pruebas:** los ejemplos de «Cómo provocar cada criterio» crean usuarios `@example.com`. Repetir las secciones 1 a 5 sobre la misma base falla por correos duplicados (400); la sección [Limpieza de los datos de prueba](#limpieza-de-los-datos-de-prueba) los borra y permite repetirlas.
 
 ---
 
@@ -193,8 +199,15 @@ Llamar Post '/auth/registro' @{ nombre = 'X'; correo = 'hola'; password = $pw }
 # RF-CA-14 política de contraseña (mín. 8 caracteres, una letra y un número): 400
 Llamar Post '/auth/registro' @{ nombre = 'X'; correo = 'x@example.com'; password = 'abc' }
 
-# RF-CA-02 la contraseña nunca se guarda en claro: la base solo tiene un hash PBKDF2 con sal ("iteraciones.sal.hash")
-Sql "SELECT LEFT(PasswordHash,7)+'...' FROM Usuarios WHERE Correo='ana@example.com'"     # 100000....
+# RD-07 entradas inválidas: rechazo controlado (400), nunca un error 500
+foreach ($c in 'a@..com', 'a@b..com', '.a@b.com', 'a.@b.com', 'a@-b.com', 'a@b-.com') {                 # correos mal formados
+    Llamar Post '/auth/registro' @{ nombre = 'X'; correo = $c; password = $pw }
+}
+Llamar Post '/auth/registro' @{ nombre = 'X'; correo = "a@example.com$([char]0)"; password = $pw }      # carácter de control (NUL) en el correo
+Llamar Post '/auth/registro' @{ nombre = "X$([char]0)"; correo = 'x@example.com'; password = $pw }      # carácter de control en el nombre
+Llamar Post '/auth/registro' @{ nombre = 'X'; correo = 'x@example.com'; password = ('a1' * 65) }       # contraseña de más de 128 caracteres
+try { Invoke-WebRequest "$api/auth/login" -Method Post -ContentType 'application/json' -Body '{' -UseBasicParsing }
+catch { [int]$_.Exception.Response.StatusCode }                                                         # JSON roto: 400
 
 # RF-CA-15 una cuenta sin activar no entra aunque la contraseña sea correcta (403) y el correo de activación
 # solo queda encolado (Pendiente), nunca se envía dentro de la operación
@@ -218,6 +231,11 @@ Llamar Get "/auth/activar?token=$viejo"                  # 400: el token viejo q
 $nuevo = TokenActivacion 'carla@example.com'
 Sql "UPDATE TokensUnUso SET FechaVencimiento = DATEADD(MINUTE,-1,SYSUTCDATETIME()) WHERE UsuarioId=(SELECT Id FROM Usuarios WHERE Correo='carla@example.com') AND Usado=0" | Out-Null
 Llamar Get "/auth/activar?token=$nuevo"
+
+# RF-CA-02 la contraseña se guarda con hash y sal, nunca en claro: Ana y Carla usaron la MISMA contraseña
+# y aun así tienen valores almacenados distintos (formato "iteraciones.sal.hash")
+Sql "SELECT Correo, LEFT(PasswordHash,7)+'...' AS Formato FROM Usuarios WHERE Correo IN ('ana@example.com','carla@example.com')"   # 100000....
+Sql "SELECT COUNT(DISTINCT PasswordHash) AS HashesDistintos, COUNT(*) AS Usuarios FROM Usuarios WHERE Correo IN ('ana@example.com','carla@example.com')"   # 2 y 2
 ```
 
 ### 2. Sesión: login, me, logout y bloqueo
@@ -263,18 +281,30 @@ Get-Content src/WhatAreWeEating.Api/Auth/PoliciesCatalogo.cs
 Llamar Get '/admin/usuarios' $null $t
 Llamar Get '/admin/usuarios'
 
+# RF-CA-06 y RF-CA-20 un Estándar que arma a mano las demás operaciones de Administrador (desactivar, reactivar
+# y forzar restablecimiento) también recibe 403 en las tres
+Llamar Post "/admin/usuarios/$idBeto/desactivar" $null $t
+Llamar Post "/admin/usuarios/$idBeto/reactivar" $null $t
+Llamar Post "/admin/usuarios/$idBeto/forzar-restablecimiento" $null $t
+
 # RF-CA-21 listado: solo id, nombre, correo, rol y activo (nunca hashes, sales, tokens ni sesiones)
 $lista = Llamar Get '/admin/usuarios' $null $a
 (($lista.Substring(4) | ConvertFrom-Json)[0].PSObject.Properties.Name) -join ', '
 
-# RF-CA-04 cambiar rol (solo "Administrador" o "Estandar"; otro valor: 400)
+# RF-CA-04 hay dos roles (Administrador y Estándar) y todo usuario tiene exactamente uno: consulta el rol de cada usuario
+Sql "SELECT Correo, Rol FROM Usuarios ORDER BY Correo"
+Sql "SELECT COUNT(*) AS UsuariosSinRolValido FROM Usuarios WHERE Rol IS NULL OR Rol NOT IN ('Administrador','Estandar')"     # 0
+
+# RF-CA-08 el cambio de rol está reservado al Administrador: un Estándar no puede cambiar ningún rol, ni el propio (403)
+Llamar Put "/admin/usuarios/$idAna/rol" @{ rol = 'Administrador' } $t           # Ana (Estándar) intenta cambiar su propio rol: 403
+Llamar Put "/admin/usuarios/$idBeto/rol" @{ rol = 'Administrador' } $t          # y el rol de otro usuario: 403
+# El Administrador sí puede cambiarlo (solo "Administrador" o "Estandar"; otro valor: 400)
 Llamar Put "/admin/usuarios/$idAna/rol" @{ rol = 'Root' } $a
 Llamar Put "/admin/usuarios/$idAna/rol" @{ rol = 'Administrador' } $a
 Llamar Get '/admin/usuarios' $null $t               # 200: el MISMO token de Ana ya tiene el rol nuevo (RD-06)
 Llamar Put "/admin/usuarios/$idAna/rol" @{ rol = 'Estandar' } $a
 Llamar Get '/admin/usuarios' $null $t               # 403 otra vez
-
-# RF-CA-08 usuario inexistente: 404 controlado
+# Nota: cambiar el rol de un usuario inexistente devuelve 404 controlado
 Llamar Put "/admin/usuarios/$([guid]::NewGuid())/rol" @{ rol = 'Estandar' } $a
 
 # RF-CA-20 un Administrador no puede desactivarse a sí mismo (409). Desactivar a otro revoca sus sesiones
@@ -283,6 +313,14 @@ $sb = Login 'beto@example.com' $pw
 Llamar Post "/admin/usuarios/$idBeto/desactivar" $null $a        # 200
 Llamar Get '/auth/me' $null $sb                                  # 401: su sesión abierta dejó de valer
 Llamar Post '/auth/login' @{ correo = 'beto@example.com'; password = $pw }   # 403
+
+# Un desactivado no puede reactivarse por un flujo público: reenviar-activacion responde lo mismo de siempre (200),
+# no encola ningún correo y no lo reactiva
+$antes = Sql "SELECT COUNT(*) FROM CorreosEnCola WHERE Destinatario='beto@example.com'"
+Llamar Post '/auth/reenviar-activacion' @{ correo = 'beto@example.com' }
+(Sql "SELECT COUNT(*) FROM CorreosEnCola WHERE Destinatario='beto@example.com'") - $antes    # 0: no se encoló ningún correo
+Sql "SELECT Activo FROM Usuarios WHERE Correo='beto@example.com'"                              # 0: sigue desactivado
+
 Llamar Post "/admin/usuarios/$idBeto/reactivar" $null $a         # 200
 ```
 
@@ -354,6 +392,24 @@ Llamar Post '/auth/restablecer' @{ codigo = (CodigoRecuperacion 'ana@example.com
 
 Hasta aquí los correos solo estaban en cola. Ahora los envía el worker.
 
+#### Pruebas del worker con el SMTP apagado
+
+En la ventana de pruebas (la misma donde definiste las funciones auxiliares), desde la raíz del repositorio (no pipes la salida a `Select -First`, porque cortaría el worker a medias). Todavía no abras el servidor SMTP de prueba:
+
+```powershell
+$env:ConnectionStrings__Default = "Server=localhost;Database=WhatAreWeEating;Trusted_Connection=True;TrustServerCertificate=True;"
+$env:Smtp__Host = "127.0.0.1"; $env:Smtp__Port = "2525"; $env:Smtp__User = "usuario"
+$env:Smtp__Password = "no-importa"; $env:Smtp__From = "no-reply@example.com"; $env:Smtp__EnableSsl = "false"
+
+# RF-NOT-08 el SMTP caído no rompe la operación: los registros, recuperaciones y forzados de las secciones anteriores
+# terminaron bien y sus correos están encolados como Pendiente
+Sql "SELECT COUNT(*) AS Pendientes FROM CorreosEnCola WHERE Estado='Pendiente'"
+# Con el SMTP caído el worker no puede enviar: el correo sigue Pendiente, suma un intento y guarda el motivo
+# (sin contraseña ni traza). Los reintentos y el estado Fallido llegan en la semana 11
+dotnet run --project src/WhatAreWeEating.MailWorker
+Sql "SELECT TOP 3 Destinatario, Estado, Intentos, LEFT(UltimoError,70) FROM CorreosEnCola WHERE Estado='Pendiente'"
+```
+
 #### Servidor SMTP de prueba local
 
 Si no tienes un servidor SMTP real, abre **otra ventana de PowerShell**, pega esto y déjala abierta (se detiene con `Ctrl+C`). Acepta cualquier mensaje y no entrega nada a nadie:
@@ -376,25 +432,11 @@ while ($true) {
 }
 ```
 
-#### Pruebas del worker
+#### Pruebas del worker con el SMTP encendido
 
-En la ventana de pruebas (la misma donde definiste las funciones auxiliares), desde la raíz del repositorio (no pipes la salida a `Select -First`, porque cortaría el worker a medias):
+Con el servidor de prueba abierto, vuelve a la ventana de pruebas (conserva las variables `Smtp__*` definidas arriba):
 
 ```powershell
-$env:ConnectionStrings__Default = "Server=localhost;Database=WhatAreWeEating;Trusted_Connection=True;TrustServerCertificate=True;"
-$env:Smtp__Host = "127.0.0.1"; $env:Smtp__Port = "2525"; $env:Smtp__User = "usuario"
-$env:Smtp__Password = "no-importa"; $env:Smtp__From = "no-reply@example.com"; $env:Smtp__EnableSsl = "false"
-
-# (Primero, con el SMTP de prueba APAGADO: ciérralo o no lo abras todavía)
-# RF-NOT-08 el SMTP caído no rompe la operación: los registros, recuperaciones y forzados de las secciones anteriores
-# terminaron bien y sus correos están encolados como Pendiente
-Sql "SELECT COUNT(*) AS Pendientes FROM CorreosEnCola WHERE Estado='Pendiente'"
-# Con el SMTP caído el worker no puede enviar: el correo sigue Pendiente, suma un intento y guarda el motivo
-# (sin contraseña ni traza). Los reintentos y el estado Fallido llegan en la semana 11
-dotnet run --project src/WhatAreWeEating.MailWorker
-Sql "SELECT TOP 3 Destinatario, Estado, Intentos, LEFT(UltimoError,70) FROM CorreosEnCola WHERE Estado='Pendiente'"
-
-# Enciende el SMTP de prueba y ejecuta de nuevo:
 # RF-NOT-09 el proceso independiente toma los pendientes y los envía (una línea por correo) y termina al vaciar la cola
 dotnet run --project src/WhatAreWeEating.MailWorker
 Sql "SELECT COUNT(*) AS Pendientes FROM CorreosEnCola WHERE Estado='Pendiente'"      # 0

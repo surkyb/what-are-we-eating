@@ -1,12 +1,10 @@
-using System.Text.RegularExpressions;
 using WhatAreWeEating.Core.Interfaces;
 
 namespace WhatAreWeEating.Core.Services;
 
-public partial class EmailValidator : IEmailValidator
+public class EmailValidator : IEmailValidator
 {
-    [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex EmailRegex();
+    private const int LongitudMaxima = 256;
 
     public bool IsValid(string? email)
     {
@@ -16,11 +14,40 @@ public partial class EmailValidator : IEmailValidator
         }
 
         var trimmed = email.Trim();
-        if (trimmed.Length > 256)
+        if (trimmed.Length > LongitudMaxima)
         {
             return false;
         }
 
-        return EmailRegex().IsMatch(trimmed);
+        // Sin caracteres de control (incluido NUL) ni espacios en ninguna parte
+        if (trimmed.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)))
+        {
+            return false;
+        }
+
+        // Exactamente una arroba, con parte local y dominio no vacíos
+        var arroba = trimmed.IndexOf('@');
+        if (arroba <= 0 || arroba != trimmed.LastIndexOf('@') || arroba == trimmed.Length - 1)
+        {
+            return false;
+        }
+
+        var local = trimmed[..arroba];
+        var dominio = trimmed[(arroba + 1)..];
+
+        // Parte local: sin punto al inicio ni al final, ni puntos consecutivos
+        if (local.StartsWith('.') || local.EndsWith('.') || local.Contains(".."))
+        {
+            return false;
+        }
+
+        // Dominio: al menos dos etiquetas, ninguna vacía ni con guion al inicio o al final
+        var etiquetas = dominio.Split('.');
+        if (etiquetas.Length < 2)
+        {
+            return false;
+        }
+
+        return etiquetas.All(e => e.Length > 0 && !e.StartsWith('-') && !e.EndsWith('-'));
     }
 }

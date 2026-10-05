@@ -108,6 +108,8 @@ public class UsuarioAdminService : IUsuarioAdminService
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         usuario.Activo = false;
+        // Si nunca se activó, se marca igualmente: ningún flujo público puede reactivar a un desactivado
+        usuario.FechaActivacion ??= DateTime.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
         await _sesionService.RevocarSesionesDeUsuarioAsync(usuario.Id, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -124,6 +126,7 @@ public class UsuarioAdminService : IUsuarioAdminService
         }
 
         usuario.Activo = true;
+        usuario.FechaActivacion ??= DateTime.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
         return new AdminResultado(ResultadoAdmin.Ok);
     }

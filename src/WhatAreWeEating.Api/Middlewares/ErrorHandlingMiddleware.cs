@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.Json;
 
 namespace WhatAreWeEating.Api.Middlewares;
@@ -24,14 +23,22 @@ public class ErrorHandlingMiddleware
         {
             await _next(context);
         }
+        catch (BadHttpRequestException)
+        {
+            // JSON roto, cuerpo vacío o con tipos incorrectos: rechazo controlado en cualquier entorno (RD-07, RD-08)
+            _logger.LogWarning("Solicitud con cuerpo inválido rechazada en {Path}", context.Request.Path);
+            await EscribirJsonAsync(context, StatusCodes.Status400BadRequest,
+                "La solicitud no es válida: el cuerpo está ausente, mal formado o tiene datos de tipo incorrecto.");
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Excepción no controlada capturada en {Path}", context.Request.Path);
-            await HandleExceptionAsync(context);
+            await EscribirJsonAsync(context, StatusCodes.Status500InternalServerError,
+                "Ha ocurrido un error inesperado al procesar su solicitud. Por favor, intente más tarde.");
         }
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context)
+    private static async Task EscribirJsonAsync(HttpContext context, int status, string message)
     {
         if (context.Response.HasStarted)
         {
@@ -39,16 +46,10 @@ public class ErrorHandlingMiddleware
         }
 
         context.Response.Clear();
-        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        context.Response.StatusCode = status;
         context.Response.ContentType = "application/json; charset=utf-8";
 
-        var response = new
-        {
-            status = StatusCodes.Status500InternalServerError,
-            message = "Ha ocurrido un error inesperado al procesar su solicitud. Por favor, intente más tarde."
-        };
-
-        var json = JsonSerializer.Serialize(response);
+        var json = JsonSerializer.Serialize(new { status, message });
         await context.Response.WriteAsync(json);
     }
 }

@@ -80,7 +80,8 @@ public class AdminSeeder
             PasswordHash = _passwordHasher.HashPassword(options.Password!),
             Activo = true,
             Rol = RolUsuario.Administrador,
-            FechaCreacion = DateTime.UtcNow
+            FechaCreacion = DateTime.UtcNow,
+            FechaActivacion = DateTime.UtcNow
         });
 
         await _context.SaveChangesAsync(cancellationToken);

@@ -31,6 +31,7 @@ public class AuthService : IAuthService
     }
 
     private const string MensajeCodigoInvalido = "El código de recuperación es inválido o ha expirado.";
+    private const string MensajeCorreoDuplicado = "El correo electrónico ya se encuentra registrado.";
 
     public async Task<(bool Success, string? ErrorMessage)> SolicitarRecuperacionAsync(
         string correo,
@@ -188,6 +189,11 @@ public class AuthService : IAuthService
             return (false, "El nombre no puede exceder los 100 caracteres.");
         }
 
+        if (nombreNormalizado.Any(char.IsControl))
+        {
+            return (false, "El nombre no puede contener caracteres de control.");
+        }
+
         if (!_emailValidator.IsValid(correo))
         {
             return (false, "El correo electrónico provisto no tiene un formato válido.");
@@ -207,7 +213,7 @@ public class AuthService : IAuthService
 
         if (existeCorreo)
         {
-            return (false, "El correo electrónico ya se encuentra registrado.");
+            return (false, MensajeCorreoDuplicado);
         }
 
         var passwordHash = _passwordHasher.HashPassword(password);
@@ -262,12 +268,21 @@ public class AuthService : IAuthService
 
             return (true, null);
         }
+        catch (DbUpdateException ex) when (EsViolacionDeIndiceUnico(ex))
+        {
+            // Registros simultáneos con el mismo correo: el índice único de Correo los detiene (RF-CA-01)
+            await transaction.RollbackAsync(cancellationToken);
+            return (false, MensajeCorreoDuplicado);
+        }
         catch
         {
             await transaction.RollbackAsync(cancellationToken);
             throw;
         }
     }
+
+    private static bool EsViolacionDeIndiceUnico(DbUpdateException ex)
+        => ex.InnerException is Microsoft.Data.SqlClient.SqlException sql && sql.Number is 2601 or 2627;
 
     public async Task<(bool Success, string? ErrorMessage)> ActivarCuentaAsync(
         string token,
@@ -281,10 +296,13 @@ public class AuthService : IAuthService
         var tokenHash = _tokenService.HashToken(token);
 
         var tokenEntity = await _context.TokensUnUso
+            .AsNoTracking()
             .FirstOrDefaultAsync(t => t.TokenHash == tokenHash && t.Tipo == TipoToken.Activacion, cancellationToken);
 
+        var ahora = DateTime.UtcNow;
+
         // RF-CA-16: Si es usado, vencido o inexistente, se rechaza y el estado no cambia
-        if (tokenEntity == null || tokenEntity.Usado || tokenEntity.FechaVencimiento < DateTime.UtcNow)
+        if (tokenEntity == null || tokenEntity.Usado || tokenEntity.FechaVencimiento < ahora)
         {
             return (false, "El enlace de activación es inválido o ha expirado.");
         }
@@ -292,7 +310,7 @@ public class AuthService : IAuthService
         var usuario = await _context.Usuarios
             .FirstOrDefaultAsync(u => u.Id == tokenEntity.UsuarioId, cancellationToken);
 
-        if (usuario == null)
+        if (usuario == null || usuario.FechaActivacion != null)
         {
             return (false, "El enlace de activación es inválido o ha expirado.");
         }
@@ -300,8 +318,19 @@ public class AuthService : IAuthService
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            tokenEntity.Usado = true;
+            // Consumo atómico: solo una petición puede marcar el token como usado (RF-CA-16)
+            var consumido = await _context.TokensUnUso
+                .Where(t => t.Id == tokenEntity.Id && !t.Usado && t.FechaVencimiento > ahora)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.Usado, true), cancellationToken);
+
+            if (consumido != 1)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return (false, "El enlace de activación es inválido o ha expirado.");
+            }
+
             usuario.Activo = true;
+            usuario.FechaActivacion = ahora;
 
             await _context.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -330,8 +359,9 @@ public class AuthService : IAuthService
         var usuario = await _context.Usuarios
             .FirstOrDefaultAsync(u => u.Correo == normalizedEmail, cancellationToken);
 
-        // RF-CA-17: Si el usuario existe y está inactivo, invalidar token anterior y crear uno nuevo
-        if (usuario != null && !usuario.Activo)
+        // RF-CA-17: solo si el usuario existe, está inactivo y nunca fue activado. Un usuario desactivado
+        // por un Administrador (FechaActivacion con valor) no puede volver a activarse por un flujo público
+        if (usuario != null && !usuario.Activo && usuario.FechaActivacion is null)
         {
             var tokensAnteriores = await _context.TokensUnUso
                 .Where(t => t.UsuarioId == usuario.Id && t.Tipo == TipoToken.Activacion && !t.Usado)

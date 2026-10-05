@@ -2,6 +2,7 @@ using System.Security.Claims;
 using WhatAreWeEating.Api.Auth;
 using WhatAreWeEating.Api.DTOs;
 using WhatAreWeEating.Core.Interfaces;
+using WhatAreWeEating.Core.Services;
 
 namespace WhatAreWeEating.Api.Endpoints;
 
@@ -16,10 +17,9 @@ public static class AuthEndpoints
             RegistroRequest request,
             IAuthService authService,
             IConfiguration configuration,
-            HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var baseUrl = GetBaseUrl(configuration, httpContext);
+            var baseUrl = GetBaseUrl(configuration);
             var (success, errorMessage) = await authService.RegistrarUsuarioAsync(
                 request.Nombre,
                 request.Correo,
@@ -68,10 +68,9 @@ public static class AuthEndpoints
             ReenviarActivacionRequest request,
             IAuthService authService,
             IConfiguration configuration,
-            HttpContext httpContext,
             CancellationToken cancellationToken) =>
         {
-            var baseUrl = GetBaseUrl(configuration, httpContext);
+            var baseUrl = GetBaseUrl(configuration);
             var (success, errorMessage) = await authService.ReenviarActivacionAsync(
                 request.Correo,
                 baseUrl,
@@ -101,7 +100,7 @@ public static class AuthEndpoints
                 return Results.BadRequest(new MensajeResponse("El correo y la contraseña son obligatorios."));
             }
 
-            if (request.Correo.Length > 256 || request.Password.Length > 256)
+            if (request.Correo.Length > 256 || request.Password.Length > PasswordValidator.LongitudMaxima)
             {
                 return Results.BadRequest(new MensajeResponse("El correo o la contraseña exceden la longitud permitida."));
             }
@@ -201,7 +200,7 @@ public static class AuthEndpoints
                 return Results.BadRequest(new MensajeResponse("El código y la nueva contraseña son obligatorios."));
             }
 
-            if (request.Codigo.Length > 200 || request.PasswordNueva.Length > 256)
+            if (request.Codigo.Length > 200 || request.PasswordNueva.Length > PasswordValidator.LongitudMaxima)
             {
                 return Results.BadRequest(new MensajeResponse("El código o la contraseña exceden la longitud permitida."));
             }
@@ -235,7 +234,7 @@ public static class AuthEndpoints
                 return Results.BadRequest(new MensajeResponse("La contraseña actual y la nueva son obligatorias."));
             }
 
-            if (request.PasswordActual.Length > 256 || request.PasswordNueva.Length > 256)
+            if (request.PasswordActual.Length > PasswordValidator.LongitudMaxima || request.PasswordNueva.Length > PasswordValidator.LongitudMaxima)
             {
                 return Results.BadRequest(new MensajeResponse("Las contraseñas exceden la longitud permitida."));
             }
@@ -259,14 +258,12 @@ public static class AuthEndpoints
         return app;
     }
 
-    private static string GetBaseUrl(IConfiguration configuration, HttpContext httpContext)
+    // Nunca se usa el Host del request: una cabecera falsa podría apuntar el enlace a otro dominio
+    private const string BaseUrlPorDefecto = "http://localhost:5228";
+
+    private static string GetBaseUrl(IConfiguration configuration)
     {
         var configUrl = configuration["App:BaseUrl"] ?? configuration["App__BaseUrl"];
-        if (!string.IsNullOrWhiteSpace(configUrl))
-        {
-            return configUrl;
-        }
-
-        return $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
+        return string.IsNullOrWhiteSpace(configUrl) ? BaseUrlPorDefecto : configUrl;
     }
 }

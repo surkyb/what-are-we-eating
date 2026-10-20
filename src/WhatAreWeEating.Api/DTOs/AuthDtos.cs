@@ -21,3 +21,20 @@ public record RestablecerRequest(string Codigo, string PasswordNueva);
 public record CambiarPasswordRequest(string PasswordActual, string PasswordNueva);
 
 public record MensajeResponse(string Mensaje);
+
+public record CrearSolicitudPermisoRequest(string? Permiso);
+
+public record RechazarSolicitudPermisoRequest(string? Motivo);
+
+public record SolicitudPermisoResponse(
+    Guid Id,
+    Guid SolicitanteId,
+    string Permiso,
+    string Estado,
+    DateTime FechaCreacion,
+    Guid? ResueltaPorId,
+    DateTime? FechaResolucion,
+    string? MotivoRechazo,
+    DateTime? FechaAplicacion);
+
+public record DirectorioEntradaResponse(string Nombre, string Rol);

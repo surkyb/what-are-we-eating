@@ -66,6 +66,36 @@ namespace WhatAreWeEating.Infrastructure.Migrations
                     b.ToTable("CorreosEnCola", (string)null);
                 });
 
+            modelBuilder.Entity("WhatAreWeEating.Core.Entities.PermisoConcedido", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("FechaConcesion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Permiso")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("SolicitudId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SolicitudId");
+
+                    b.HasIndex("UsuarioId", "Permiso")
+                        .IsUnique();
+
+                    b.ToTable("PermisosConcedidos", (string)null);
+                });
+
             modelBuilder.Entity("WhatAreWeEating.Core.Entities.Sesion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -89,6 +119,58 @@ namespace WhatAreWeEating.Infrastructure.Migrations
                     b.HasIndex("UsuarioId");
 
                     b.ToTable("Sesiones", (string)null);
+                });
+
+            modelBuilder.Entity("WhatAreWeEating.Core.Entities.SolicitudPermiso", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("FechaAplicacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FechaResolucion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MotivoRechazo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Permiso")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("ResueltaPorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SolicitanteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Estado");
+
+                    b.HasIndex("ResueltaPorId");
+
+                    b.HasIndex("SolicitanteId");
+
+                    b.ToTable("SolicitudesPermiso", (string)null);
                 });
 
             modelBuilder.Entity("WhatAreWeEating.Core.Entities.TokenUnUso", b =>
@@ -315,11 +397,40 @@ namespace WhatAreWeEating.Infrastructure.Migrations
                     b.ToTable("RecetaIngredientes", (string)null);
                 });
 
+            modelBuilder.Entity("WhatAreWeEating.Core.Entities.PermisoConcedido", b =>
+                {
+                    b.HasOne("WhatAreWeEating.Core.Entities.SolicitudPermiso", null)
+                        .WithMany()
+                        .HasForeignKey("SolicitudId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("WhatAreWeEating.Core.Entities.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("WhatAreWeEating.Core.Entities.Sesion", b =>
                 {
                     b.HasOne("WhatAreWeEating.Core.Entities.Usuario", null)
                         .WithMany()
                         .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("WhatAreWeEating.Core.Entities.SolicitudPermiso", b =>
+                {
+                    b.HasOne("WhatAreWeEating.Core.Entities.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("ResueltaPorId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("WhatAreWeEating.Core.Entities.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("SolicitanteId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

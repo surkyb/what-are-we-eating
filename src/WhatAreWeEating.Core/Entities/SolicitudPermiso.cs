@@ -29,6 +29,9 @@ public class SolicitudPermiso
     public string? MotivoRechazo { get; set; }
     public DateTime? FechaAplicacion { get; set; }
 
+    /// <summary>Token de concurrencia: dos resoluciones simultáneas no pueden ganar las dos (RF-GP-06).</summary>
+    public byte[] RowVersion { get; set; } = [];
+
     /// <summary>RF-GP-01: toda solicitud nace Pendiente.</summary>
     public static SolicitudPermiso Crear(Guid solicitanteId, string permiso, DateTime ahora) => new()
     {

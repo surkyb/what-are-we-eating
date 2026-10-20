@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using WhatAreWeEating.Core.Interfaces;
 using WhatAreWeEating.Core.Services;
 using WhatAreWeEating.Infrastructure.Services;
@@ -40,6 +41,10 @@ public static class DependencyInjection
         // Administración de usuarios y siembra del primer administrador
         services.AddScoped<IUsuarioAdminService, UsuarioAdminService>();
         services.AddScoped<AdminSeeder>();
+
+        // Gestión de permisos (solicitud, aprobación y aplicación automática)
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<IPermisoService, PermisoService>();
 
         return services;
     }

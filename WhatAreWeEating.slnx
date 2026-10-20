@@ -6,4 +6,7 @@
     <Project Path="src/WhatAreWeEating.MailWorker/WhatAreWeEating.MailWorker.csproj" />
     <Project Path="src/WhatAreWeEating.Recetas/WhatAreWeEating.Recetas.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WhatAreWeEating.Tests/WhatAreWeEating.Tests.csproj" />
+  </Folder>
 </Solution>

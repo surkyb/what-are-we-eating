@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
     public DbSet<TokenUnUso> TokensUnUso => Set<TokenUnUso>();
     public DbSet<CorreoEnCola> CorreosEnCola => Set<CorreoEnCola>();
     public DbSet<Sesion> Sesiones => Set<Sesion>();
+    public DbSet<SolicitudPermiso> SolicitudesPermiso => Set<SolicitudPermiso>();
+    public DbSet<PermisoConcedido> PermisosConcedidos => Set<PermisoConcedido>();
 
     // Recetas
     public DbSet<Receta> Recetas => Set<Receta>();

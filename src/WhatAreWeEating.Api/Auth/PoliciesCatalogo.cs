@@ -23,6 +23,16 @@ public static class PoliciesCatalogo
         public const string DesactivarUsuario = "admin.usuarios.desactivar";
         public const string ReactivarUsuario = "admin.usuarios.reactivar";
         public const string ForzarRestablecimiento = "admin.usuarios.forzar-restablecimiento";
+
+        // Gestión de permisos: solicitar y consultar lo propio, cualquier autenticado; resolver, solo Administrador
+        public const string SolicitarPermiso = "permisos.solicitar";
+        public const string ListarMisSolicitudes = "permisos.listar-propias";
+        public const string ListarSolicitudesPendientes = "permisos.listar-pendientes";
+        public const string AprobarSolicitud = "permisos.aprobar";
+        public const string RechazarSolicitud = "permisos.rechazar";
+
+        // Acción habilitada por un permiso concedido: la concesión se verifica en el endpoint
+        public const string ConsultarDirectorio = "directorio.consultar";
     }
 
     /// <summary>operación -> rol requerido (null = cualquier usuario autenticado).</summary>
@@ -37,6 +47,14 @@ public static class PoliciesCatalogo
         [Operaciones.DesactivarUsuario] = RolUsuario.Administrador,
         [Operaciones.ReactivarUsuario] = RolUsuario.Administrador,
         [Operaciones.ForzarRestablecimiento] = RolUsuario.Administrador,
+
+        [Operaciones.SolicitarPermiso] = null,
+        [Operaciones.ListarMisSolicitudes] = null,
+        [Operaciones.ListarSolicitudesPendientes] = RolUsuario.Administrador,
+        [Operaciones.AprobarSolicitud] = RolUsuario.Administrador,
+        [Operaciones.RechazarSolicitud] = RolUsuario.Administrador,
+
+        [Operaciones.ConsultarDirectorio] = null,
     };
 
     public static void Registrar(AuthorizationOptions options)

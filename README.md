@@ -15,6 +15,8 @@ src/
 ├── WhatAreWeEating.Recetas         # Dominio de negocio: recetas, ingredientes, despensa, máquina de estados
 ├── WhatAreWeEating.Infrastructure  # AppDbContext, Configurations/, Migrations/, servicios, DI
 └── WhatAreWeEating.MailWorker      # Consola independiente: envía los correos en cola por SMTP
+tests/
+└── WhatAreWeEating.Tests           # Pruebas unitarias (xUnit); solo referencian el Core, sin base de datos ni API
 ```
 
 Reglas de dependencia: Core no referencia a nadie; Recetas referencia Core; Infrastructure referencia Core y Recetas; Api y MailWorker referencian lo que necesitan.
@@ -126,6 +128,20 @@ Para probar sin un servidor real, ver [Servidor SMTP de prueba local](#servidor-
 
 ---
 
+## Pruebas
+
+Las pruebas unitarias (xUnit) ejercitan el Core directamente: no levantan la API ni necesitan SQL Server, variables de entorno ni conexión. Desde la raíz de un clon limpio del repositorio, un único comando restaura, compila y ejecuta toda la suite:
+
+```powershell
+dotnet test WhatAreWeEating.slnx
+```
+
+Resultado esperado: todas las pruebas superadas y `Con error: 0`. Las pruebas son independientes entre sí (cada una arma sus propios datos) y pasan en cualquier orden. Las de Gestión de permisos están en `tests/WhatAreWeEating.Tests/SolicitudPermisoTests.cs`, cada una con las tres fases `// Preparar`, `// Actuar` y `// Verificar`:
+
+- **Transiciones válidas:** aprobar deja el estado `Aprobada` con quién y cuándo (RF-GP-03); rechazar con motivo deja `Rechazada` con el motivo (RF-GP-04); aplicar una aprobada la deja `Aplicada`.
+- **Transiciones prohibidas:** aprobar dos veces, aplicar una rechazada, aprobar una rechazada o aplicar una pendiente se rechazan y el estado no cambia (RF-GP-06).
+- **Reglas:** rechazo sin motivo (RF-GP-04) y nadie resuelve su propia solicitud (RF-GP-07).
+
 ## Cómo provocar cada criterio de aceptación
 
 Esta sección se puede seguir de arriba hacia abajo. Cada criterio tiene un ejemplo y el resultado esperado. Los ejemplos se probaron contra la API con el flujo exacto de abajo.
@@ -186,6 +202,7 @@ function IdUsuario($correo) { (Sql "SELECT CAST(Id AS varchar(36)) FROM Usuarios
 | RF-CA-13 | [5. Forzar restablecimiento](#5-forzar-restablecimiento-solo-administrador) |
 | RF-NOT-08, 09, 12, 13 | [6. Envío de correos](#6-envío-de-correos-mailworker) |
 | RF-NEG-03, 04, 05, 09 | [7. Máquina de estados](#7-máquina-de-estados-de-receta) |
+| RF-GP-01 a 07, RD-09 | [8. Gestión de permisos](#8-gestión-de-permisos) |
 
 ### 1. Registro y activación
 
@@ -488,12 +505,90 @@ Console.WriteLine("Archivada sin transiciones de salida: OK");
 
 Resultado esperado: las cinco transiciones permitidas (`Borrador -> EnRevision`, `EnRevision -> Publicada`, `EnRevision -> Rechazada`, `Rechazada -> Borrador`, `Publicada -> Archivada`), `Borrador -> Publicada: PROHIBIDA` y `Archivada sin transiciones de salida: OK`.
 
+### 8. Gestión de permisos
+
+Un usuario solicita un permiso del catálogo (`src/WhatAreWeEating.Core/Permisos/CatalogoPermisos.cs`; hoy existe uno: `directorio.consultar`, que habilita `GET /directorio`). Un Administrador lo aprueba o lo rechaza. Estados en `src/WhatAreWeEating.Core/Enums/EstadoSolicitudPermiso.cs` y transiciones en `src/WhatAreWeEating.Core/Permisos/TransicionesSolicitudPermiso.cs` (único punto donde se declaran, RD-04):
+
+| Desde | Hacia |
+| :--- | :--- |
+| Pendiente | Aprobada, Rechazada |
+| Aprobada | Aplicada |
+| Aplicada, Rechazada | (terminales: ninguna) |
+
+Requiere haber seguido las secciones 1 a 3: usa a Ana y a Beto (Estándar, activos) y al Administrador sembrado. La autorización está en `PoliciesCatalogo.cs` y se verifica en el servidor en cada petición (RD-06). Las respuestas de solicitud muestran `estado`, `resueltaPorId`, `fechaResolucion`, `motivoRechazo` y `fechaAplicacion`.
+
+> **Aprobar y aplicar ocurren en la misma operación (RF-GP-05).** La solicitud pasa por `Aprobada` y termina en `Aplicada` antes de que la API responda, por eso la respuesta de aprobar muestra `estado: "Aplicada"`. El quién y el cuándo de la aprobación (RF-GP-03) son `resueltaPorId` y `fechaResolucion`; el cuándo de la aplicación es `fechaAplicacion`.
+
+```powershell
+$a  = Login 'admin@whatareweeating.test' $pw
+$ta = Login 'ana@example.com' $pw
+$tb = Login 'beto@example.com' $pw
+
+# Sin el permiso, la acción que habilita está cerrada: 403
+Llamar Get '/directorio' $null $ta
+
+# RF-GP-01 un Estándar crea una solicitud: 201 y estado "Pendiente"
+$r = Llamar Post '/permisos/solicitudes' @{ permiso = 'directorio.consultar' } $ta; $r
+$idAna = ($r.Substring(4) | ConvertFrom-Json).id
+# Una segunda solicitud igual mientras hay una pendiente: 409. Un permiso que no existe: 400
+Llamar Post '/permisos/solicitudes' @{ permiso = 'directorio.consultar' } $ta
+Llamar Post '/permisos/solicitudes' @{ permiso = 'inventado' } $ta
+
+# RF-GP-02 el Administrador ve las pendientes de todos (200, aparece la de Ana). Un Estándar no puede: 403
+Llamar Get '/permisos/solicitudes' $null $a
+Llamar Get '/permisos/solicitudes' $null $ta
+# Cada usuario solo ve las suyas: Beto no ve la de Ana (200 con lista vacía)
+Llamar Get '/permisos/solicitudes/mias' $null $tb
+
+# Un Estándar tampoco puede resolver solicitudes ajenas: 403
+Llamar Post "/permisos/solicitudes/$idAna/aprobar" $null $tb
+
+# RF-GP-07 nadie resuelve su propia solicitud: el Administrador crea la suya e intenta aprobarla y rechazarla (409 las dos)
+$r = Llamar Post '/permisos/solicitudes' @{ permiso = 'directorio.consultar' } $a
+$idAdmin = ($r.Substring(4) | ConvertFrom-Json).id
+Llamar Post "/permisos/solicitudes/$idAdmin/aprobar" $null $a
+Llamar Post "/permisos/solicitudes/$idAdmin/rechazar" @{ motivo = 'x' } $a
+
+# RF-GP-04 rechazar sin motivo escrito no se completa: 400 (la solicitud sigue Pendiente)
+Llamar Post "/permisos/solicitudes/$idAna/rechazar" @{ motivo = '   ' } $a
+Llamar Post "/permisos/solicitudes/$idAna/rechazar" @{} $a
+# RD-07 cuerpo roto o con tipos incorrectos: 400, nunca 500
+Llamar Post "/permisos/solicitudes/$idAna/rechazar" @{ motivo = 5 } $a
+
+# RF-GP-04 rechazar con motivo: 200, "Rechazada", con el motivo y quién resolvió. Beto solicita y se la rechazan
+$r = Llamar Post '/permisos/solicitudes' @{ permiso = 'directorio.consultar' } $tb
+$idBeto = ($r.Substring(4) | ConvertFrom-Json).id
+Llamar Post "/permisos/solicitudes/$idBeto/rechazar" @{ motivo = 'No lo necesita' } $a
+# RF-GP-06 de Rechazada no se sale: aprobarla da 409 y la solicitud sigue "Rechazada"
+Llamar Post "/permisos/solicitudes/$idBeto/aprobar" $null $a
+Llamar Get '/permisos/solicitudes/mias' $null $tb
+Llamar Get '/directorio' $null $tb                               # 403: Beto no recibió el permiso
+
+# RF-GP-03 y RF-GP-05 el Administrador aprueba la de Ana: 200, estado "Aplicada" (aprobada y aplicada en la misma operación),
+# con resueltaPorId (quién) y fechaResolucion (cuándo)
+Llamar Post "/permisos/solicitudes/$idAna/aprobar" $null $a
+# RF-GP-06 aprobar dos veces la misma solicitud: 409 y nada cambia
+Llamar Post "/permisos/solicitudes/$idAna/aprobar" $null $a
+# RF-GP-05 sin ningún paso manual adicional, Ana ya ejecuta la acción que pidió: 200 con el directorio
+Llamar Get '/directorio' $null $ta
+
+# Una solicitud que no existe: 404
+Llamar Post "/permisos/solicitudes/$([guid]::NewGuid())/aprobar" $null $a
+
+# RD-09 las solicitudes están en la base y sobreviven a reiniciar la API
+Sql "SELECT Estado, MotivoRechazo FROM SolicitudesPermiso ORDER BY FechaCreacion"
+Sql "SELECT COUNT(*) FROM PermisosConcedidos"                    # 1: el permiso de Ana
+```
+
+Para comprobar el reinicio, detén la API (Ctrl+C en la ventana 1), vuelve a lanzarla con `dotnet run --project src/WhatAreWeEating.Api` y repite `Llamar Get '/permisos/solicitudes/mias' $null $ta` con un token nuevo (`$ta = Login 'ana@example.com' $pw`): las solicitudes de Ana siguen ahí y `Llamar Get '/directorio' $null $ta` sigue dando 200.
+
 ### Limpieza de los datos de prueba
 
 Borra solo lo creado por estos ejemplos (usuarios `@example.com`; el Administrador sembrado usa otro dominio y no se borra), en este orden por las claves foráneas:
 
 ```powershell
 $in = "(SELECT Id FROM Usuarios WHERE Correo LIKE '%@example.com')"
+Sql "DELETE FROM PermisosConcedidos WHERE UsuarioId IN $in OR SolicitudId IN (SELECT Id FROM SolicitudesPermiso WHERE SolicitanteId IN $in OR ResueltaPorId IN $in); DELETE FROM SolicitudesPermiso WHERE SolicitanteId IN $in OR ResueltaPorId IN $in" | Out-Null
 Sql "DELETE FROM Sesiones WHERE UsuarioId IN $in; DELETE FROM TokensUnUso WHERE UsuarioId IN $in; DELETE FROM CorreosEnCola WHERE Destinatario LIKE '%@example.com'; DELETE FROM Usuarios WHERE Correo LIKE '%@example.com'" | Out-Null
 ```
 

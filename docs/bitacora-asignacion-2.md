@@ -8,7 +8,7 @@ Documentar la sesión con el agente (Claude Code) en la que se construyó la pie
 
 ### 1. Plan de implementación
 
-**Qué le pedí:** «hagamos un plan de implementación para esta asignación», pegando el enunciado completo.
+**Qué le pedí:** le pegué el enunciado completo de la Asignación 2 (Gestión de permisos y su primera suite de pruebas, con los siete requisitos RF-GP-01 a RF-GP-07, las reglas transversales RD-04, RD-06, RD-07 y RD-09, la rúbrica de cinco criterios y la fecha de cierre) y le pedí: «hagamos un plan de implementación para esta asignación». Quería un plan que cubriera la pieza, la suite de pruebas con transición válida y prohibida, el README con el comando de `## Pruebas` y la bitácora, y que dijera qué podía quitarme puntos.
 
 **Qué me devolvió:** exploró el repositorio y propuso un plan por fases: modelo y reglas en el Core sin base de datos (para poder probarlo según RD-12), pruebas, servicio con EF Core y migración, endpoints, README y bitácora. Propuso definir un «permiso» como una capacidad con nombre (`directorio.consultar`) y usar `GET /directorio` como la acción que el permiso habilita, para demostrar RF-GP-05. También señaló que el cambio sin commitear en `PasswordValidator.cs` (`< 8` a `< 7`) contradecía su mensaje y recomendó revertirlo.
 
@@ -16,13 +16,13 @@ Documentar la sesión con el agente (Claude Code) en la que se construyó la pie
 
 ### 2. Modelo de dominio y reglas (Core)
 
-**Qué le pedí:** empezar con la implementación.
+**Qué le pedí:** tras revisar el plan, le dije que no revirtiera el cambio de `PasswordValidator.cs`, que lo dejara y empezara ya con la implementación, que fuera haciendo commits con mi correo personal y sin el trailer de Claude, y que yo le confirmaba las decisiones de diseño después. El plan que había aprobado empezaba por el modelo y las reglas en el Core, con las transiciones de la tabla del enunciado (Pendiente → Aprobada → Aplicada y Pendiente → Rechazada) declaradas en un solo punto (RD-04).
 
 **Qué me devolvió:** `EstadoSolicitudPermiso`, `TransicionesSolicitudPermiso` (la tabla de transiciones en un solo punto, RD-04), la entidad `SolicitudPermiso` con `Aprobar`, `Rechazar` y `Aplicar` (que devuelven un resultado tipado y no modifican el estado si la operación se rechaza), `CatalogoPermisos` y `PermisoConcedido`. Commit `bb3de`.
 
 ### 3. Casos de prueba y su redacción
 
-**Qué le pedí:** continuar con la suite de pruebas.
+**Qué le pedí:** no lo pedí en un mensaje aparte: el plan que aprobé tenía las pruebas como la fase 3 y mi instrucción de empezar la implementación las incluía. Lo que el enunciado exige de la suite es al menos una prueba de transición válida que verifique el estado y el dato registrado (RF-GP-03 o RF-GP-04), al menos una de transición prohibida que verifique el rechazo y que el estado no cambió (RF-GP-06), tres fases identificables por prueba (preparar, actuar, verificar), nombres que digan qué verifican, independencia entre pruebas y un único comando documentado, sin levantar la aplicación (RD-12).
 
 **Qué me devolvió:** `tests/WhatAreWeEating.Tests/SolicitudPermisoTests.cs`, con 12 pruebas, que suman 23 casos al contar los datos de los `[Theory]` (commit `98da2`). Cada una tiene las fases `// Preparar`, `// Actuar` y `// Verificar`, un nombre que describe el comportamiento y sus propios datos (sin estado compartido). Incluye transiciones válidas (con quién/cuándo y con el motivo), transiciones prohibidas (aprobar dos veces, aplicar una rechazada, aprobar una rechazada, aplicar una pendiente), una tabla completa de pares de estados, rechazo sin motivo y auto-resolución. En las pruebas prohibidas se verifica el rechazo **y** que el estado, y los datos registrados, no cambiaron.
 
@@ -30,19 +30,19 @@ Documentar la sesión con el agente (Claude Code) en la que se construyó la pie
 
 ### 4. Servicio, migración y endpoints
 
-**Qué le pedí:** «sigue con el servicio y los endpoints».
+**Qué le pedí:** «sigue con el servicio y los endpoints». Es decir, llevar las reglas del Core a una pieza que funcione de punta a punta: que al aprobar el permiso se aplique solo (RF-GP-05), que el Administrador consulte las pendientes y un Estándar no vea las ajenas (RF-GP-02), que la autorización se verifique en el servidor (RD-06), que la entrada inválida dé un rechazo controlado (RD-07) y que las solicitudes sobrevivan a reiniciar la aplicación (RD-09).
 
 **Qué me devolvió:** `PermisoService` (aprobar y aplicar en una sola operación atómica; token de concurrencia `RowVersion` para que dos aprobaciones simultáneas no ganen las dos), configuraciones de EF, la migración `SolicitudesPermiso` y los endpoints `POST/GET /permisos/solicitudes`, `GET /permisos/solicitudes/mias`, `POST .../{id}/aprobar`, `POST .../{id}/rechazar` y `GET /directorio`. La autorización quedó en `PoliciesCatalogo.cs` y se verifica en el servidor (RD-06). Commits `b5f52` y `18b56`.
 
 ### 5. Verificación contra la base de datos real
 
-**Qué le pedí:** continuar con la verificación del flujo contra la API.
+**Qué le pedí:** «sí, sigue con el paso 1», que era levantar la API contra SQL Server y probar el flujo completo, incluido el reinicio. Quería comprobar con la aplicación real cada criterio de aceptación del enunciado antes de documentarlo en el README, que se sigue al pie de la letra al calificar.
 
 **Qué hizo:** escribió un script de PowerShell, lo ejecutó contra SQL Server local usando una base temporal (`WhatAreWeEating_gp_test`, que luego borró) y una API en otro puerto, y comprobó cada criterio: 201 Pendiente, 403 al Estándar en las rutas de administrador, 409 en la auto-resolución, 400 al rechazar sin motivo, 409 al aprobar dos veces y al aprobar una rechazada, 200 «Aplicada» con quién y cuándo, `GET /directorio` pasando de 403 a 200 sin pasos manuales y la persistencia tras reiniciar la API.
 
 ### 6. README
 
-**Qué le pedí:** «usa ese comando y sigue con el README» (el comando es `dotnet test WhatAreWeEating.slnx`).
+**Qué le pedí:** «usa ese comando y sigue con el README» (el comando es `dotnet test WhatAreWeEating.slnx`). El enunciado pide que el README tenga una sección titulada «Pruebas» con un único comando que ejecute toda la suite desde un clon limpio, y que explique cómo provocar cada criterio RF-GP, porque el profesor lo sigue al pie de la letra y lo que no esté escrito no se busca.
 
 **Qué me devolvió:** la sección `## Pruebas` y la sección «8. Gestión de permisos» con un comando por criterio y su resultado esperado (commit `5d8ad`).
 

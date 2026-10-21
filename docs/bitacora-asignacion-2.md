@@ -8,7 +8,7 @@ Documentar la sesión con el agente (Claude Code) en la que se construyó la pie
 
 ### 1. Plan de implementación
 
-**Qué le pedí:** le pegué el enunciado completo de la Asignación 2 (Gestión de permisos y su primera suite de pruebas, con los siete requisitos RF-GP-01 a RF-GP-07, las reglas transversales RD-04, RD-06, RD-07 y RD-09, la rúbrica de cinco criterios y la fecha de cierre) y le pedí: «hagamos un plan de implementación para esta asignación». Quería un plan que cubriera la pieza, la suite de pruebas con transición válida y prohibida, el README con el comando de `## Pruebas` y la bitácora, y que dijera qué podía quitarme puntos.
+**Qué le pedí:** le pegué el enunciado completo de la Asignación 2 (Gestión de permisos y su primera suite de pruebas, con los siete requisitos RF-GP-01 a RF-GP-07, las reglas transversales RD-04, RD-06, RD-07 y RD-09, la rúbrica de cinco criterios y la fecha de cierre) y le pedí: «hagamos un plan de implementación para esta asignación». El enunciado exige tres entregas en el tag `asignacion-2` (la pieza funcionando, una primera suite de pruebas con una transición válida y una prohibida, y esta bitácora) más el README con el comando de `## Pruebas`, así que el plan tenía que cubrir las tres.
 
 **Qué me devolvió:** exploró el repositorio y propuso un plan por fases: modelo y reglas en el Core sin base de datos (para poder probarlo según RD-12), pruebas, servicio con EF Core y migración, endpoints, README y bitácora. Propuso definir un «permiso» como una capacidad con nombre (`directorio.consultar`) y usar `GET /directorio` como la acción que el permiso habilita, para demostrar RF-GP-05. También señaló que el cambio sin commitear en `PasswordValidator.cs` (`< 8` a `< 7`) contradecía su mensaje y recomendó revertirlo.
 
@@ -30,13 +30,13 @@ Documentar la sesión con el agente (Claude Code) en la que se construyó la pie
 
 ### 4. Servicio, migración y endpoints
 
-**Qué le pedí:** «sigue con el servicio y los endpoints». Es decir, llevar las reglas del Core a una pieza que funcione de punta a punta: que al aprobar el permiso se aplique solo (RF-GP-05), que el Administrador consulte las pendientes y un Estándar no vea las ajenas (RF-GP-02), que la autorización se verifique en el servidor (RD-06), que la entrada inválida dé un rechazo controlado (RD-07) y que las solicitudes sobrevivan a reiniciar la aplicación (RD-09).
+**Qué le pedí:** «sigue con el servicio y los endpoints». En el plan eso correspondía a llevar las reglas del Core a una pieza que funcione de punta a punta: que al aprobar el permiso se aplique solo (RF-GP-05), que el Administrador consulte las pendientes y un Estándar no vea las ajenas (RF-GP-02), que la autorización se verifique en el servidor (RD-06), que la entrada inválida dé un rechazo controlado (RD-07) y que las solicitudes sobrevivan a reiniciar la aplicación (RD-09).
 
 **Qué me devolvió:** `PermisoService` (aprobar y aplicar en una sola operación atómica; token de concurrencia `RowVersion` para que dos aprobaciones simultáneas no ganen las dos), configuraciones de EF, la migración `SolicitudesPermiso` y los endpoints `POST/GET /permisos/solicitudes`, `GET /permisos/solicitudes/mias`, `POST .../{id}/aprobar`, `POST .../{id}/rechazar` y `GET /directorio`. La autorización quedó en `PoliciesCatalogo.cs` y se verifica en el servidor (RD-06). Commits `b5f52` y `18b56`.
 
 ### 5. Verificación contra la base de datos real
 
-**Qué le pedí:** «sí, sigue con el paso 1», que era levantar la API contra SQL Server y probar el flujo completo, incluido el reinicio. Quería comprobar con la aplicación real cada criterio de aceptación del enunciado antes de documentarlo en el README, que se sigue al pie de la letra al calificar.
+**Qué le pedí:** «sí, sigue con el paso 1», que era levantar la API contra SQL Server y probar el flujo completo, incluido el reinicio. El paso 1 del plan era comprobar con la aplicación real cada criterio de aceptación del enunciado antes de documentarlo en el README, que se sigue al pie de la letra al calificar.
 
 **Qué hizo:** escribió un script de PowerShell, lo ejecutó contra SQL Server local usando una base temporal (`WhatAreWeEating_gp_test`, que luego borró) y una API en otro puerto, y comprobó cada criterio: 201 Pendiente, 403 al Estándar en las rutas de administrador, 409 en la auto-resolución, 400 al rechazar sin motivo, 409 al aprobar dos veces y al aprobar una rechazada, 200 «Aplicada» con quién y cuándo, `GET /directorio` pasando de 403 a 200 sin pasos manuales y la persistencia tras reiniciar la API.
 

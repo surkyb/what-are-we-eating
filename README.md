@@ -61,10 +61,11 @@ Los comandos se ejecutan desde la raíz del repositorio. Los ejemplos usan Power
 
 1. **Clonar y restaurar:**
    ```powershell
-   git clone <url-del-repo> WhatAreWeEating
+   git clone -c core.longpaths=true <url-del-repo> WhatAreWeEating
    cd WhatAreWeEating
    dotnet restore
    ```
+   La opción `-c core.longpaths=true` evita el error `Filename too long` de Windows cuando el clon queda en una carpeta muy anidada (los nombres de las migraciones son largos). En Linux o macOS no hace falta, pero no estorba.
 
 2. **Definir las variables de entorno** (solo valen para la ventana de PowerShell donde las escribes):
    ```powershell

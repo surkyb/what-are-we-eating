@@ -64,6 +64,14 @@ Documentar la sesión con el agente (Claude Code) en la que se construyó la pie
 
 **Cómo se corrigió:** dejó de usar heredocs para código y volvió a crear los archivos con la herramienta de escritura de archivos y a hacer las modificaciones con la herramienta de edición, y después compiló la solución (0 errores, 0 advertencias) y ejecutó la suite para confirmar que el resultado era el esperado.
 
+### Error 3: se incluyeron en el PR pruebas de otra pieza
+
+**Qué pasó:** al preparar el PR, el agente me propuso como opción commitear `PasswordValidatorTests.cs` junto con la pieza, sin señalar en ese momento que esas pruebas estaban fuera del alcance de la asignación. Yo elegí esa opción y se commitearon (`a9475`).
+
+**Cómo se detectó:** al revisar el trabajo contra la rúbrica, el propio agente vio dos problemas. Esas pruebas son de otra pieza (control de acceso) y no de Gestión de permisos, y una de ellas (`Validate_ContrasenaInvalida_SeRechazaConSuMensaje`) mezcla tres motivos de rechazo, lo que choca con el requisito de que cada prueba verifique un solo comportamiento y su nombre diga cuál.
+
+**Cómo se corrigió:** a mi pedido, el agente sacó `PasswordValidatorTests.cs` de la suite en un commit aparte (`f596b`) y corrigió README y bitácora para que no afirmaran que la suite fallaba. Después de eso, `dotnet test WhatAreWeEating.slnx` da 23 pruebas superadas y 0 con error, todas de Gestión de permisos.
+
 ## Cosas que quedaron pendientes o por decidir (honestidad sobre el estado)
 
 - **El cambio `< 7` en `PasswordValidator.cs` ya está resuelto:** lo reviertí a `< 8` y la suite completa pasa (`dotnet test WhatAreWeEating.slnx`, 0 pruebas con error). Además, saqué `PasswordValidatorTests.cs` de la suite de esta entrega, porque pertenece a otra pieza y no a Gestión de permisos.

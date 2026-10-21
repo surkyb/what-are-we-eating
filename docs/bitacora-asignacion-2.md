@@ -24,9 +24,9 @@ Documentar la sesión con el agente (Claude Code) en la que se construyó la pie
 
 **Qué le pedí:** continuar con la suite de pruebas.
 
-**Qué me devolvió:** `tests/WhatAreWeEating.Tests/SolicitudPermisoTests.cs`, con 15 pruebas (commit `98da2`). Cada una tiene las fases `// Preparar`, `// Actuar` y `// Verificar`, un nombre que describe el comportamiento y sus propios datos (sin estado compartido). Incluye transiciones válidas (con quién/cuándo y con el motivo), transiciones prohibidas (aprobar dos veces, aplicar una rechazada, aprobar una rechazada, aplicar una pendiente), una tabla completa de pares de estados, rechazo sin motivo y auto-resolución. En las pruebas prohibidas se verifica el rechazo **y** que el estado, y los datos registrados, no cambiaron.
+**Qué me devolvió:** `tests/WhatAreWeEating.Tests/SolicitudPermisoTests.cs`, con 12 pruebas, que suman 23 casos al contar los datos de los `[Theory]` (commit `98da2`). Cada una tiene las fases `// Preparar`, `// Actuar` y `// Verificar`, un nombre que describe el comportamiento y sus propios datos (sin estado compartido). Incluye transiciones válidas (con quién/cuándo y con el motivo), transiciones prohibidas (aprobar dos veces, aplicar una rechazada, aprobar una rechazada, aplicar una pendiente), una tabla completa de pares de estados, rechazo sin motivo y auto-resolución. En las pruebas prohibidas se verifica el rechazo **y** que el estado, y los datos registrados, no cambiaron.
 
-**Resultado de la primera ejecución:** 28 pruebas superadas y 1 fallida. Las 15 nuevas pasaron; la fallida es `PasswordValidatorTests` (`Abcdef1` de 7 caracteres debía rechazarse), causada por mi cambio sin commitear `< 7` en `PasswordValidator.cs`. El agente lo señaló y, como yo le había pedido dejarlo, no lo tocó ni lo incluyó en sus commits.
+**Resultado de la primera ejecución:** 28 pruebas superadas y 1 fallida. Los 23 casos nuevos pasaron; la fallida es `PasswordValidatorTests` (`Abcdef1` de 7 caracteres debía rechazarse), causada por mi cambio sin commitear `< 7` en `PasswordValidator.cs`. El agente lo señaló y, como yo le había pedido dejarlo, no lo tocó ni lo incluyó en sus commits.
 
 ### 4. Servicio, migración y endpoints
 

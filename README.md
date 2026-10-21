@@ -517,6 +517,8 @@ Un usuario solicita un permiso del catálogo (`src/WhatAreWeEating.Core/Permisos
 
 Requiere haber seguido las secciones 1 a 3: usa a Ana y a Beto (Estándar, activos) y al Administrador sembrado. La autorización está en `PoliciesCatalogo.cs` y se verifica en el servidor en cada petición (RD-06). Las respuestas de solicitud muestran `estado`, `resueltaPorId`, `fechaResolucion`, `motivoRechazo` y `fechaAplicacion`.
 
+> **Aprobar y aplicar ocurren en la misma operación (RF-GP-05).** La solicitud pasa por `Aprobada` y termina en `Aplicada` antes de que la API responda, por eso la respuesta de aprobar muestra `estado: "Aplicada"`. El quién y el cuándo de la aprobación (RF-GP-03) son `resueltaPorId` y `fechaResolucion`; el cuándo de la aplicación es `fechaAplicacion`.
+
 ```powershell
 $a  = Login 'admin@whatareweeating.test' $pw
 $ta = Login 'ana@example.com' $pw

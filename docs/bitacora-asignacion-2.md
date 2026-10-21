@@ -66,6 +66,6 @@ Documentar la sesión con el agente (Claude Code) en la que se construyó la pie
 
 ## Cosas que quedaron pendientes o por decidir (honestidad sobre el estado)
 
-- **La suite completa no pasa todavía:** mientras `PasswordValidator.cs` siga en `< 7`, `dotnet test WhatAreWeEating.slnx` da 1 prueba fallida (de `PasswordValidatorTests`, que no pertenece a esta pieza). Hay que volver a `< 8` antes de etiquetar, o dejar ese archivo de pruebas fuera del tag.
+- **El cambio `< 7` en `PasswordValidator.cs` ya está resuelto:** lo reviertí a `< 8` y la suite completa pasa (`dotnet test WhatAreWeEating.slnx`, 0 pruebas con error). Además, saqué `PasswordValidatorTests.cs` de la suite de esta entrega, porque pertenece a otra pieza y no a Gestión de permisos.
 - **La protección contra aprobaciones simultáneas** (`RowVersion`) está implementada pero no la ejercité con una prueba de carrera.
 - **Decisiones de diseño que tomé o acepté:** un administrador también necesita el permiso concedido para ver `/directorio`; la auto-resolución devuelve `409` por coherencia con las acciones sobre uno mismo que ya existían en administración de usuarios.

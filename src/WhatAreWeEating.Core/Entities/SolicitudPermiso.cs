@@ -45,11 +45,6 @@ public class SolicitudPermiso
     /// <summary>RF-GP-03, RF-GP-06, RF-GP-07.</summary>
     public ResultadoTransicion Aprobar(Guid adminId, DateTime ahora)
     {
-        if (adminId == SolicitanteId)
-        {
-            return ResultadoTransicion.AutoResolucion;
-        }
-
         if (!TransicionesSolicitudPermiso.EsPermitida(Estado, EstadoSolicitudPermiso.Aprobada))
         {
             return ResultadoTransicion.TransicionNoPermitida;
@@ -64,11 +59,6 @@ public class SolicitudPermiso
     /// <summary>RF-GP-04, RF-GP-06, RF-GP-07. Sin motivo escrito el rechazo no se completa.</summary>
     public ResultadoTransicion Rechazar(Guid adminId, string? motivo, DateTime ahora)
     {
-        if (adminId == SolicitanteId)
-        {
-            return ResultadoTransicion.AutoResolucion;
-        }
-
         if (!TransicionesSolicitudPermiso.EsPermitida(Estado, EstadoSolicitudPermiso.Rechazada))
         {
             return ResultadoTransicion.TransicionNoPermitida;

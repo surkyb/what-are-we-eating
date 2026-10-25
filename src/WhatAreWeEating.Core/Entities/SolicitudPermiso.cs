@@ -50,7 +50,7 @@ public class SolicitudPermiso
             return ResultadoTransicion.AutoResolucion;
         }
 
-        if (!TransicionesSolicitudPermiso.EsPermitida(Estado, EstadoSolicitudPermiso.Aprobada))
+        if (Estado == EstadoSolicitudPermiso.Rechazada)
         {
             return ResultadoTransicion.TransicionNoPermitida;
         }

@@ -82,7 +82,6 @@ public class SolicitudPermiso
         Estado = EstadoSolicitudPermiso.Rechazada;
         ResueltaPorId = adminId;
         FechaResolucion = ahora;
-        MotivoRechazo = motivo.Trim();
         return ResultadoTransicion.Ok;
     }
 

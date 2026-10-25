@@ -12,7 +12,7 @@ public static class TransicionesSolicitudPermiso
         new Dictionary<EstadoSolicitudPermiso, IReadOnlyList<EstadoSolicitudPermiso>>
         {
             [EstadoSolicitudPermiso.Pendiente] = [EstadoSolicitudPermiso.Aprobada, EstadoSolicitudPermiso.Rechazada],
-            [EstadoSolicitudPermiso.Aprobada] = [EstadoSolicitudPermiso.Aplicada],
+            [EstadoSolicitudPermiso.Aprobada] = [EstadoSolicitudPermiso.Aplicada, EstadoSolicitudPermiso.Pendiente],
 
             // Estados terminales
             [EstadoSolicitudPermiso.Aplicada] = [],

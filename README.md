@@ -130,17 +130,31 @@ Para probar sin un servidor real, ver [Servidor SMTP de prueba local](#servidor-
 
 ## Pruebas
 
-Las pruebas unitarias (xUnit) ejercitan el Core directamente: no levantan la API ni necesitan SQL Server, variables de entorno ni conexión. Desde la raíz de un clon limpio del repositorio, un único comando restaura, compila y ejecuta toda la suite:
+Las pruebas unitarias (xUnit) ejercitan el Core y el servicio de permisos (sobre una base de datos en memoria) directamente: no levantan la API ni necesitan SQL Server, variables de entorno ni conexión. Desde la raíz de un clon limpio del repositorio, un único comando restaura, compila y ejecuta toda la suite:
 
 ```powershell
 dotnet test WhatAreWeEating.slnx
 ```
 
-Resultado esperado: todas las pruebas superadas y `Con error: 0`. Las pruebas son independientes entre sí (cada una arma sus propios datos) y pasan en cualquier orden. Las de Gestión de permisos están en `tests/WhatAreWeEating.Tests/SolicitudPermisoTests.cs`, cada una con las tres fases `// Preparar`, `// Actuar` y `// Verificar`:
+Resultado esperado: todas las pruebas superadas y `Con error: 0`. Las pruebas son independientes entre sí (cada una arma sus propios datos) y pasan en cualquier orden. Las de Gestión de permisos están en `tests/WhatAreWeEating.Tests/SolicitudPermisoTests.cs` (reglas de la entidad) y `tests/WhatAreWeEating.Tests/PermisoServiceTests.cs` (servicio: listados, aprobación con aplicación y permiso efectivo). Cada una con las tres fases `// Preparar`, `// Actuar` y `// Verificar`:
 
 - **Transiciones válidas:** aprobar deja el estado `Aprobada` con quién y cuándo (RF-GP-03); rechazar con motivo deja `Rechazada` con el motivo (RF-GP-04); aplicar una aprobada la deja `Aplicada`.
 - **Transiciones prohibidas:** aprobar dos veces, aplicar una rechazada, aprobar una rechazada o aplicar una pendiente se rechazan y el estado no cambia (RF-GP-06).
 - **Reglas:** rechazo sin motivo (RF-GP-04) y nadie resuelve su propia solicitud (RF-GP-07).
+- **Servicio (`PermisoServiceTests`):** la solicitud nace `Pendiente` (RF-GP-01); un Estándar solo ve las suyas y el Administrador ve las pendientes de todos (RF-GP-02); aprobar registra quién y cuándo (RF-GP-03); al aprobar, la solicitud llega a `Aplicada` y `TienePermisoAsync` pasa a `true` solo para el solicitante (RF-GP-05); las transiciones prohibidas no cambian el estado ni conceden permiso (RF-GP-06); la autoresolución se rechaza (RF-GP-07).
+
+Cada prueba lleva un comentario `// RF-GP-xx` con el requisito que verifica.
+
+## Defectos
+
+Variante A. Cada defecto está plantado en un commit etiquetado `practica-2-defecto-N` cuyo padre es `practica-2`; sobre ese commit, `dotnet test WhatAreWeEating.slnx` falla en la prueba indicada. Sobre `practica-2` todas pasan.
+
+1. **Defecto 1** (RF-GP-06): `SolicitudPermisoTests.Aprobar_SolicitudYaAprobada_SeRechazaYElEstadoNoCambia` — aprobar por segunda vez una solicitud ya aprobada se rechaza y no cambia el estado ni quién aprobó.
+2. **Defecto 2** (RF-GP-06): `SolicitudPermisoTests.Aplicar_SolicitudRechazada_SeRechazaYElEstadoSigueRechazada` — una solicitud Rechazada no puede pasar a Aplicada.
+3. **Defecto 3** (RF-GP-07): `SolicitudPermisoTests.Aprobar_PorQuienCreoLaSolicitud_SeRechazaYSigueEnPendiente` — un Administrador no puede aprobar (ni rechazar) su propia solicitud.
+4. **Defecto 4** (RF-GP-02): `PermisoServiceTests.ListarDeUsuario_UnEstandar_SoloVeSusPropiasSolicitudes` — un Estándar solo ve sus solicitudes, no las de otros.
+5. **Defecto 5** (RF-GP-06): `SolicitudPermisoTests.EsPermitida_ParDeEstados_SoloAceptaLasTransicionesDeLaTabla` (caso Aprobada → Pendiente) — una solicitud aprobada no puede volver a Pendiente.
+6. **Defecto 6** (RF-GP-04): `SolicitudPermisoTests.Rechazar_SolicitudPendienteConMotivo_QuedaRechazadaConMotivoRegistrado` — al rechazar con motivo, el motivo queda guardado.
 
 ## Cómo provocar cada criterio de aceptación
 

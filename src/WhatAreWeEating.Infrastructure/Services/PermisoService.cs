@@ -55,7 +55,7 @@ public class PermisoService : IPermisoService
     public async Task<IReadOnlyList<SolicitudPermisoDto>> ListarDeUsuarioAsync(Guid usuarioId, CancellationToken cancellationToken = default)
     {
         var solicitudes = await _context.SolicitudesPermiso.AsNoTracking()
-            .Where(s => s.SolicitanteId == usuarioId)
+            .Where(s => s.SolicitanteId != usuarioId)
             .OrderBy(s => s.FechaCreacion)
             .ToListAsync(cancellationToken);
         return solicitudes.Select(ADto).ToList();

@@ -16,7 +16,7 @@ public static class TransicionesSolicitudPermiso
 
             // Estados terminales
             [EstadoSolicitudPermiso.Aplicada] = [],
-            [EstadoSolicitudPermiso.Rechazada] = [],
+            [EstadoSolicitudPermiso.Rechazada] = [EstadoSolicitudPermiso.Aplicada],
         };
 
     public static bool EsPermitida(EstadoSolicitudPermiso origen, EstadoSolicitudPermiso destino)

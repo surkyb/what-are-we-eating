@@ -206,11 +206,6 @@ public class RecetaService : IRecetaService
 
     public async Task<Resultado<IReadOnlyList<RecetaDto>>> ListarPreparablesAsync(Guid usuarioId, CancellationToken ct = default)
     {
-        if (!await _permisos.TienePermisoAsync(usuarioId, CatalogoPermisos.ConsultarRecetasPreparables, ct))
-        {
-            return new(ResultadoReceta.PermisoRequerido,
-                Mensaje: $"Requiere el permiso '{CatalogoPermisos.ConsultarRecetasPreparables}'. Solicítelo en POST /permisos/solicitudes.");
-        }
 
         var despensa = await _context.DespensaIngredientes.AsNoTracking()
             .Where(di => di.Despensa.UsuarioId == usuarioId)

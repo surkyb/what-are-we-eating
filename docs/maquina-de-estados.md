@@ -28,8 +28,9 @@ Define el ciclo de vida de una receta (RF-NEG-03) y qué cambios de estado está
 | Desde | Hacia | Por qué está prohibida |
 | :--- | :--- | :--- |
 | Borrador | Publicada | Una receta no puede publicarse sin pasar por revisión (RF-NEG-04). |
+| Archivada | Borrador | Una receta archivada no se reabre: `Archivada` es terminal (RF-NEG-05). |
 
-También queda prohibida cualquier combinación que no esté en la tabla de permitidas, incluido pasar de un estado a sí mismo. `TransicionesReceta.ProhibidasExplicitas` deja nombradas, con su motivo, la anterior y `Archivada -> Borrador`.
+También queda prohibida cualquier combinación que no esté en la tabla de permitidas, incluido pasar de un estado a sí mismo. `TransicionesReceta.ProhibidasExplicitas` deja nombradas, con su motivo, estas dos.
 
 ## Estado terminal
 

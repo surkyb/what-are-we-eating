@@ -34,7 +34,7 @@ public static class PoliciesCatalogo
         // Acción habilitada por un permiso concedido: la concesión se verifica en el endpoint
         public const string ConsultarDirectorio = "directorio.consultar";
 
-        // Módulo de recetas: catálogos y decisiones de revisión, solo Administrador; autoría y despensa, solo Estándar
+        // Módulo de recetas: altas de catálogo y decisiones de revisión, solo Administrador; autoría y despensa, solo Estándar; consultas de catálogo y de publicadas, ambos roles
         public const string CrearCategoria = "recetas.categorias.crear";
         public const string CrearIngrediente = "recetas.ingredientes.crear";
         public const string ListarCategorias = "recetas.categorias.listar";
@@ -53,55 +53,62 @@ public static class PoliciesCatalogo
         public const string ListarRecetasPreparables = "recetas.listar-preparables";
     }
 
-    /// <summary>operación -> rol requerido (null = cualquier usuario autenticado).</summary>
-    public static readonly IReadOnlyDictionary<string, RolUsuario?> RolPorOperacion = new Dictionary<string, RolUsuario?>
+    private static readonly RolUsuario[] SoloAdministrador = [RolUsuario.Administrador];
+    private static readonly RolUsuario[] SoloEstandar = [RolUsuario.Estandar];
+    private static readonly RolUsuario[] Ambos = [RolUsuario.Estandar, RolUsuario.Administrador];
+
+    /// <summary>
+    /// operación -> roles que pueden ejecutarla (basta con tener uno). Toda operación del negocio declara al
+    /// menos un rol (RF-NEG-06); null (cualquier usuario autenticado) queda solo para la sesión y los permisos del Core.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, RolUsuario[]?> RolesPorOperacion = new Dictionary<string, RolUsuario[]?>
     {
         [Operaciones.ConsultarPerfil] = null,
         [Operaciones.CerrarSesion] = null,
         [Operaciones.CambiarPassword] = null,
 
-        [Operaciones.ListarUsuarios] = RolUsuario.Administrador,
-        [Operaciones.CambiarRolUsuario] = RolUsuario.Administrador,
-        [Operaciones.DesactivarUsuario] = RolUsuario.Administrador,
-        [Operaciones.ReactivarUsuario] = RolUsuario.Administrador,
-        [Operaciones.ForzarRestablecimiento] = RolUsuario.Administrador,
+        [Operaciones.ListarUsuarios] = SoloAdministrador,
+        [Operaciones.CambiarRolUsuario] = SoloAdministrador,
+        [Operaciones.DesactivarUsuario] = SoloAdministrador,
+        [Operaciones.ReactivarUsuario] = SoloAdministrador,
+        [Operaciones.ForzarRestablecimiento] = SoloAdministrador,
 
         [Operaciones.SolicitarPermiso] = null,
         [Operaciones.ListarMisSolicitudes] = null,
-        [Operaciones.ListarSolicitudesPendientes] = RolUsuario.Administrador,
-        [Operaciones.AprobarSolicitud] = RolUsuario.Administrador,
-        [Operaciones.RechazarSolicitud] = RolUsuario.Administrador,
+        [Operaciones.ListarSolicitudesPendientes] = SoloAdministrador,
+        [Operaciones.AprobarSolicitud] = SoloAdministrador,
+        [Operaciones.RechazarSolicitud] = SoloAdministrador,
 
         [Operaciones.ConsultarDirectorio] = null,
 
-        [Operaciones.CrearCategoria] = RolUsuario.Administrador,
-        [Operaciones.CrearIngrediente] = RolUsuario.Administrador,
-        [Operaciones.ListarCategorias] = null,
-        [Operaciones.ListarIngredientes] = null,
-        [Operaciones.CrearReceta] = RolUsuario.Estandar,
-        [Operaciones.EnviarRecetaARevision] = RolUsuario.Estandar,
-        [Operaciones.RetomarReceta] = RolUsuario.Estandar,
-        [Operaciones.PublicarReceta] = RolUsuario.Administrador,
-        [Operaciones.RechazarReceta] = RolUsuario.Administrador,
-        [Operaciones.ArchivarReceta] = RolUsuario.Administrador,
-        [Operaciones.ListarRecetasPublicadas] = null,
-        [Operaciones.ListarRecetasEnRevision] = RolUsuario.Administrador,
-        [Operaciones.ListarMisRecetas] = RolUsuario.Estandar,
-        [Operaciones.GuardarEnDespensa] = RolUsuario.Estandar,
-        [Operaciones.ListarDespensa] = RolUsuario.Estandar,
-        [Operaciones.ListarRecetasPreparables] = RolUsuario.Estandar,
+        [Operaciones.CrearCategoria] = SoloAdministrador,
+        [Operaciones.CrearIngrediente] = SoloAdministrador,
+        [Operaciones.ListarCategorias] = Ambos,
+        [Operaciones.ListarIngredientes] = Ambos,
+        [Operaciones.CrearReceta] = SoloEstandar,
+        [Operaciones.EnviarRecetaARevision] = SoloEstandar,
+        [Operaciones.RetomarReceta] = SoloEstandar,
+        [Operaciones.PublicarReceta] = SoloAdministrador,
+        [Operaciones.RechazarReceta] = SoloAdministrador,
+        [Operaciones.ArchivarReceta] = SoloAdministrador,
+        [Operaciones.ListarRecetasPublicadas] = Ambos,
+        [Operaciones.ListarRecetasEnRevision] = SoloAdministrador,
+        [Operaciones.ListarMisRecetas] = SoloEstandar,
+        [Operaciones.GuardarEnDespensa] = SoloEstandar,
+        [Operaciones.ListarDespensa] = SoloEstandar,
+        [Operaciones.ListarRecetasPreparables] = SoloEstandar,
     };
 
     public static void Registrar(AuthorizationOptions options)
     {
-        foreach (var (operacion, rol) in RolPorOperacion)
+        foreach (var (operacion, roles) in RolesPorOperacion)
         {
             options.AddPolicy(operacion, policy =>
             {
                 policy.RequireAuthenticatedUser();
-                if (rol is not null)
+                if (roles is not null)
                 {
-                    policy.RequireRole(rol.Value.ToString());
+                    policy.RequireRole(roles.Select(r => r.ToString()));
                 }
             });
         }

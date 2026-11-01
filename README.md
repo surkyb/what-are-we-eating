@@ -16,7 +16,7 @@ src/
 ├── WhatAreWeEating.Infrastructure  # AppDbContext, Configurations/, Migrations/, servicios, DI
 └── WhatAreWeEating.MailWorker      # Consola independiente: envía los correos en cola por SMTP
 tests/
-└── WhatAreWeEating.Tests           # Pruebas unitarias (xUnit); solo referencian el Core, sin base de datos ni API
+└── WhatAreWeEating.Tests           # Pruebas (xUnit): Core, máquina de estados e integración de servicios sobre base en memoria; sin SQL Server ni API
 ```
 
 Reglas de dependencia: Core no referencia a nadie; Recetas referencia Core; Infrastructure referencia Core y Recetas; Api y MailWorker referencian lo que necesitan.
@@ -499,11 +499,11 @@ Funcionalidades separables (RF-NEG-02), cada una con su método en `IRecetaServi
 | 4 | Rechazar con motivo | `POST /recetas/{id}/rechazar` | Administrador |
 | 5 | Retomar una rechazada | `POST /recetas/{id}/retomar` | Estándar autor |
 | 6 | Archivar (definitivo) | `POST /recetas/{id}/archivar` | Administrador |
-| 7 | Consultar por estado | `GET /recetas/publicadas`, `/en-revision`, `/mias` | Todos / Administrador / Estándar |
+| 7 | Consultar por estado | `GET /recetas/publicadas`, `/en-revision`, `/mias` | Estándar y Administrador / Administrador / Estándar |
 | 8 | Guardar y ver la despensa | `PUT /despensa/ingredientes/{id}`, `GET /despensa` | Estándar |
 | 9 | Recetas que se pueden preparar con la despensa | `GET /recetas/preparables` | Estándar con el permiso `recetas.consultar-preparables` |
 
-Para apoyar la creación, el Administrador da de alta categorías (`POST /categorias`) e ingredientes (`POST /ingredientes`); cualquier usuario autenticado los lista.
+Para apoyar la creación, el Administrador da de alta categorías (`POST /categorias`) e ingredientes (`POST /ingredientes`); los lista cualquiera de los dos roles (sin sesión, 401).
 
 La funcionalidad 9 usa Gestión de permisos: el Estándar solicita `recetas.consultar-preparables`, un Administrador lo aprueba y solo entonces puede ejecutarla. `RecetaService.ListarPreparablesAsync` consulta `IPermisoService.TienePermisoAsync` en cada llamada (RD-06). Requiere haber seguido las secciones 1 a 3: usa a Ana y a Beto (Estándar, activos) y al Administrador sembrado. Los ejemplos se pueden repetir tras la [limpieza](#limpieza-de-los-datos-de-prueba).
 
@@ -792,6 +792,7 @@ erDiagram
         string instrucciones
         Guid autorId
         string estado
+        string motivoRechazo
         Guid categoriaId
     }
     INGREDIENTE {

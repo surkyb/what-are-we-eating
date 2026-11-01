@@ -33,6 +33,24 @@ public static class PoliciesCatalogo
 
         // Acción habilitada por un permiso concedido: la concesión se verifica en el endpoint
         public const string ConsultarDirectorio = "directorio.consultar";
+
+        // Módulo de recetas: catálogos y decisiones de revisión, solo Administrador; autoría y despensa, solo Estándar
+        public const string CrearCategoria = "recetas.categorias.crear";
+        public const string CrearIngrediente = "recetas.ingredientes.crear";
+        public const string ListarCategorias = "recetas.categorias.listar";
+        public const string ListarIngredientes = "recetas.ingredientes.listar";
+        public const string CrearReceta = "recetas.crear";
+        public const string EnviarRecetaARevision = "recetas.enviar-a-revision";
+        public const string RetomarReceta = "recetas.retomar";
+        public const string PublicarReceta = "recetas.publicar";
+        public const string RechazarReceta = "recetas.rechazar";
+        public const string ArchivarReceta = "recetas.archivar";
+        public const string ListarRecetasPublicadas = "recetas.listar-publicadas";
+        public const string ListarRecetasEnRevision = "recetas.listar-en-revision";
+        public const string ListarMisRecetas = "recetas.listar-propias";
+        public const string GuardarEnDespensa = "despensa.guardar";
+        public const string ListarDespensa = "despensa.listar";
+        public const string ListarRecetasPreparables = "recetas.listar-preparables";
     }
 
     /// <summary>operación -> rol requerido (null = cualquier usuario autenticado).</summary>
@@ -55,6 +73,23 @@ public static class PoliciesCatalogo
         [Operaciones.RechazarSolicitud] = RolUsuario.Administrador,
 
         [Operaciones.ConsultarDirectorio] = null,
+
+        [Operaciones.CrearCategoria] = RolUsuario.Administrador,
+        [Operaciones.CrearIngrediente] = RolUsuario.Administrador,
+        [Operaciones.ListarCategorias] = null,
+        [Operaciones.ListarIngredientes] = null,
+        [Operaciones.CrearReceta] = RolUsuario.Estandar,
+        [Operaciones.EnviarRecetaARevision] = RolUsuario.Estandar,
+        [Operaciones.RetomarReceta] = RolUsuario.Estandar,
+        [Operaciones.PublicarReceta] = RolUsuario.Administrador,
+        [Operaciones.RechazarReceta] = RolUsuario.Administrador,
+        [Operaciones.ArchivarReceta] = RolUsuario.Administrador,
+        [Operaciones.ListarRecetasPublicadas] = null,
+        [Operaciones.ListarRecetasEnRevision] = RolUsuario.Administrador,
+        [Operaciones.ListarMisRecetas] = RolUsuario.Estandar,
+        [Operaciones.GuardarEnDespensa] = RolUsuario.Estandar,
+        [Operaciones.ListarDespensa] = RolUsuario.Estandar,
+        [Operaciones.ListarRecetasPreparables] = RolUsuario.Estandar,
     };
 
     public static void Registrar(AuthorizationOptions options)

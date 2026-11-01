@@ -23,6 +23,9 @@ public class RecetaConfiguration : IEntityTypeConfiguration<Receta>
         builder.Property(r => r.ImagenUrl)
             .HasMaxLength(500);
 
+        builder.Property(r => r.MotivoRechazo)
+            .HasMaxLength(500);
+
         builder.Property(r => r.Estado)
             .HasConversion<string>()
             .HasMaxLength(30)

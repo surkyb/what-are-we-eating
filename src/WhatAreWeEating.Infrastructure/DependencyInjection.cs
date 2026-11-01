@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using WhatAreWeEating.Core.Interfaces;
 using WhatAreWeEating.Core.Services;
+using WhatAreWeEating.Recetas.Interfaces;
 using WhatAreWeEating.Infrastructure.Services;
 
 namespace WhatAreWeEating.Infrastructure;
@@ -45,6 +46,9 @@ public static class DependencyInjection
         // Gestión de permisos (solicitud, aprobación y aplicación automática)
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IPermisoService, PermisoService>();
+
+        // Módulo de negocio de recetas (usa Gestión de permisos para la operación que requiere permiso)
+        services.AddScoped<IRecetaService, RecetaService>();
 
         return services;
     }

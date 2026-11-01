@@ -20,7 +20,7 @@ public static class TransicionesReceta
             [EstadoReceta.Publicada] = [EstadoReceta.Archivada],
 
             // Estado terminal: ninguna transición parte de él (RF-NEG-05)
-            [EstadoReceta.Archivada] = []
+            [EstadoReceta.Archivada] = [EstadoReceta.Borrador]
         };
 
     /// <summary>Rol que ejecuta cada transición permitida ("Quién la ejecuta" de docs/maquina-de-estados.md).</summary>

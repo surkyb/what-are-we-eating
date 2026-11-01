@@ -677,7 +677,7 @@ Llamar Post "/permisos/solicitudes/$([guid]::NewGuid())/aprobar" $null $a
 
 # RD-09 las solicitudes están en la base y sobreviven a reiniciar la API
 Sql "SELECT Estado, MotivoRechazo FROM SolicitudesPermiso ORDER BY FechaCreacion"
-Sql "SELECT COUNT(*) FROM PermisosConcedidos"                    # 1: el permiso de Ana
+Sql "SELECT COUNT(*) FROM PermisosConcedidos WHERE Permiso = 'directorio.consultar'"    # 1: el permiso de Ana (aunque hayas hecho antes la sección 7)
 ```
 
 Para comprobar el reinicio, detén la API (Ctrl+C en la ventana 1), vuelve a lanzarla con `dotnet run --project src/WhatAreWeEating.Api` y repite `Llamar Get '/permisos/solicitudes/mias' $null $ta` con un token nuevo (`$ta = Login 'ana@example.com' $pw`): las solicitudes de Ana siguen ahí y `Llamar Get '/directorio' $null $ta` sigue dando 200.

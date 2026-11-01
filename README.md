@@ -130,31 +130,33 @@ Para probar sin un servidor real, ver [Servidor SMTP de prueba local](#servidor-
 
 ## Pruebas
 
-Las pruebas unitarias (xUnit) ejercitan el Core y el servicio de permisos (sobre una base de datos en memoria) directamente: no levantan la API ni necesitan SQL Server, variables de entorno ni conexión. Desde la raíz de un clon limpio del repositorio, un único comando restaura, compila y ejecuta toda la suite:
+Las pruebas (xUnit) ejercitan el Core, la máquina de estados de Receta y los servicios de permisos y de recetas (sobre una base de datos en memoria) directamente: no levantan la API ni necesitan SQL Server, variables de entorno ni conexión. Desde la raíz de un clon limpio del repositorio, un único comando restaura, compila y ejecuta toda la suite:
 
 ```powershell
 dotnet test WhatAreWeEating.slnx
 ```
 
-Resultado esperado: todas las pruebas superadas y `Con error: 0`. Las pruebas son independientes entre sí (cada una arma sus propios datos) y pasan en cualquier orden. Las de Gestión de permisos están en `tests/WhatAreWeEating.Tests/SolicitudPermisoTests.cs` (reglas de la entidad) y `tests/WhatAreWeEating.Tests/PermisoServiceTests.cs` (servicio: listados, aprobación con aplicación y permiso efectivo). Cada una con las tres fases `// Preparar`, `// Actuar` y `// Verificar`:
+Resultado esperado: todas las pruebas superadas y `Con error: 0`. Las pruebas son independientes entre sí (cada una arma sus propios datos) y pasan en cualquier orden. Cada una lleva las tres fases `// Preparar`, `// Actuar` y `// Verificar`, verifica un solo comportamiento y su nombre dice cuál.
 
-- **Transiciones válidas:** aprobar deja el estado `Aprobada` con quién y cuándo (RF-GP-03); rechazar con motivo deja `Rechazada` con el motivo (RF-GP-04); aplicar una aprobada la deja `Aplicada`.
-- **Transiciones prohibidas:** aprobar dos veces, aplicar una rechazada, aprobar una rechazada o aplicar una pendiente se rechazan y el estado no cambia (RF-GP-06).
-- **Reglas:** rechazo sin motivo (RF-GP-04) y nadie resuelve su propia solicitud (RF-GP-07).
-- **Servicio (`PermisoServiceTests`):** la solicitud nace `Pendiente` (RF-GP-01); un Estándar solo ve las suyas y el Administrador ve las pendientes de todos (RF-GP-02); aprobar registra quién y cuándo (RF-GP-03); al aprobar, la solicitud llega a `Aplicada` y `TienePermisoAsync` pasa a `true` solo para el solicitante (RF-GP-05); las transiciones prohibidas no cambian el estado ni conceden permiso (RF-GP-06); la autoresolución se rechaza (RF-GP-07).
+**Máquina de estados de Receta** (`tests/WhatAreWeEating.Tests/RecetaTransicionesTests.cs`, solo la entidad `Receta`, sin base de datos):
 
-Cada prueba lleva un comentario `// RF-GP-xx` con el requisito que verifica.
+- **Una prueba por cada fila de las transiciones permitidas** de [docs/maquina-de-estados.md](docs/maquina-de-estados.md): `Borrador → EnRevision`, `EnRevision → Publicada`, `EnRevision → Rechazada` (con el motivo guardado), `Rechazada → Borrador` y `Publicada → Archivada`.
+- **La transición prohibida explícita** `Borrador → Publicada` (se rechaza y el estado sigue `Borrador`) y `Archivada → Borrador`. Además, una prueba recorre los 25 pares de estados y comprueba que solo las cinco de la tabla son permitidas.
+- **Estado terminal:** desde `Archivada` no se llega a ningún estado (una prueba por cada destino) y la tabla no declara ninguna salida.
+- **Condiciones y roles:** quien no es autor no envía ni retoma; sin ingredientes no se envía; un Estándar no publica; rechazar exige motivo.
+
+**Gestión de permisos** (`SolicitudPermisoTests.cs`: reglas de la entidad; `PermisoServiceTests.cs`: servicio): las transiciones válidas y prohibidas de las solicitudes (RF-GP-03, 04, 06, 07), los listados (RF-GP-02), la solicitud `Pendiente` (RF-GP-01) y que al aprobar `TienePermisoAsync` pasa a `true` solo para el solicitante (RF-GP-05). Cada una lleva un comentario `// RF-GP-xx`.
+
+**Integración de recetas con Gestión de permisos** (`RecetasConPermisosIntegracionTests.cs`): usa `PermisoService` y `RecetaService` reales, sin dobles y sin la API. Comprueba las dos caras de la operación `ListarPreparablesAsync`: se rechaza sin solicitar el permiso, con la solicitud pendiente, tras rechazarla y cuando el permiso se aprobó a otro usuario; y se permite (devuelve la receta) después de que un Administrador aprueba la solicitud.
 
 ## Defectos
 
-Variante A. Cada defecto está plantado en un commit etiquetado `practica-2-defecto-N` cuyo padre es `practica-2`; sobre ese commit, `dotnet test WhatAreWeEating.slnx` falla en la prueba indicada. Sobre `practica-2` todas pasan.
+Cada defecto es un cambio pequeño en código de producción, plantado en un commit etiquetado `practica-3-defecto-N` cuyo padre es `practica-3`; el mensaje del commit dice qué archivo y qué línea cambia, y no toca ningún archivo de pruebas. Sobre ese commit, `dotnet test WhatAreWeEating.slnx` falla en las pruebas indicadas. Sobre `practica-3` todas pasan.
 
-1. **Defecto 1** (RF-GP-06): `SolicitudPermisoTests.Aprobar_SolicitudYaAprobada_SeRechazaYElEstadoNoCambia` — aprobar por segunda vez una solicitud ya aprobada se rechaza y no cambia el estado ni quién aprobó.
-2. **Defecto 2** (RF-GP-06): `SolicitudPermisoTests.Aplicar_SolicitudRechazada_SeRechazaYElEstadoSigueRechazada` — una solicitud Rechazada no puede pasar a Aplicada.
-3. **Defecto 3** (RF-GP-07): `SolicitudPermisoTests.Aprobar_PorQuienCreoLaSolicitud_SeRechazaYSigueEnPendiente` — un Administrador no puede aprobar (ni rechazar) su propia solicitud.
-4. **Defecto 4** (RF-GP-02): `PermisoServiceTests.ListarDeUsuario_UnEstandar_SoloVeSusPropiasSolicitudes` — un Estándar solo ve sus solicitudes, no las de otros.
-5. **Defecto 5** (RF-GP-06): `SolicitudPermisoTests.EsPermitida_ParDeEstados_SoloAceptaLasTransicionesDeLaTabla` (caso Aprobada → Pendiente) — una solicitud aprobada no puede volver a Pendiente.
-6. **Defecto 6** (RF-GP-04): `SolicitudPermisoTests.Rechazar_SolicitudPendienteConMotivo_QuedaRechazadaConMotivoRegistrado` — al rechazar con motivo, el motivo queda guardado.
+1. **Defecto 1** (`TransicionesReceta.cs`, tabla de permitidas): `RecetaTransicionesTests.Transicionar_BorradorAPublicada_Administrador_SeRechazaYSigueEnBorrador` (y `EsTransicionPermitida_BorradorAPublicada_EsFalsa`) — una receta en `Borrador` no puede publicarse sin pasar por revisión; el rechazo no cambia el estado.
+2. **Defecto 2** (`TransicionesReceta.cs`, estado terminal): `RecetaTransicionesTests.Transicionar_DesdeArchivadaACualquierEstado_SeRechazaYSigueArchivada` (y `Permitidas_EstadoArchivada_NoTieneNingunaTransicionDeSalida`) — `Archivada` es terminal: de ahí no se sale.
+3. **Defecto 3** (`Receta.cs`, condición de `Borrador → EnRevision`): `RecetaTransicionesTests.Transicionar_BorradorAEnRevision_QuienNoEsElAutor_SeRechazaYSigueEnBorrador` — solo el autor, con datos completos, envía su receta a revisión.
+4. **Defecto 4** (`RecetaService.cs`, consulta a Gestión de permisos): `RecetasConPermisosIntegracionTests.ListarPreparables_SinSolicitarElPermiso_SeRechaza` (y las otras tres pruebas de rechazo de ese archivo) — la operación se rechaza mientras el permiso no esté aprobado.
 
 ## Cómo provocar cada criterio de aceptación
 
@@ -215,7 +217,7 @@ function IdUsuario($correo) { (Sql "SELECT CAST(Id AS varchar(36)) FROM Usuarios
 | RF-CA-09, 10, 11, 12, 14, 22 | [4. Contraseñas](#4-recuperación-restablecimiento-y-cambio-de-contraseña) |
 | RF-CA-13 | [5. Forzar restablecimiento](#5-forzar-restablecimiento-solo-administrador) |
 | RF-NOT-08, 09, 12, 13 | [6. Envío de correos](#6-envío-de-correos-mailworker) |
-| RF-NEG-03, 04, 05, 09 | [7. Máquina de estados](#7-máquina-de-estados-de-receta) |
+| RF-NEG-02 a 06, 09, RD-04, RD-07, RD-09 | [7. Módulo de negocio: recetas](#7-módulo-de-negocio-recetas-y-su-máquina-de-estados) |
 | RF-GP-01 a 07, RD-09 | [8. Gestión de permisos](#8-gestión-de-permisos) |
 
 ### 1. Registro y activación
@@ -483,45 +485,129 @@ Remove-Item Env:Smtp__*; dotnet run --project src/WhatAreWeEating.MailWorker; $L
 
 Con un SMTP real (por ejemplo Gmail, `smtp.gmail.com`, puerto `587`, `Smtp__EnableSsl = true` y una contraseña de aplicación) los mensajes llegan a las bandejas reales; usa correos tuyos.
 
-### 7. Máquina de estados de Receta
+### 7. Módulo de negocio: recetas y su máquina de estados
 
-La máquina de estados es estructura del módulo de negocio (todavía sin endpoints): estados en `src/WhatAreWeEating.Recetas/Enums/EstadoReceta.cs`, transiciones en `src/WhatAreWeEating.Recetas/Estados/TransicionesReceta.cs` y la tabla explicada en [docs/maquina-de-estados.md](docs/maquina-de-estados.md). No comparte enums ni código con la máquina de permisos del Core (RF-NEG-09).
+Una receta tiene un autor (Estándar) y pasa por una revisión del Administrador antes de publicarse. Estados en `src/WhatAreWeEating.Recetas/Enums/EstadoReceta.cs`, transiciones en `src/WhatAreWeEating.Recetas/Estados/TransicionesReceta.cs` y la tabla explicada en [docs/maquina-de-estados.md](docs/maquina-de-estados.md). La regla (tabla, rol y condición) se resuelve en un solo punto, `Receta.Transicionar`, y no comparte enums ni código con la máquina de permisos del Core (RF-NEG-09). Qué rol ejecuta cada operación está en `PoliciesCatalogo.cs` (RF-NEG-06): sin sesión responde 401 y con otro rol, 403.
+
+Funcionalidades separables (RF-NEG-02), cada una con su método en `IRecetaService` y su endpoint:
+
+| # | Funcionalidad | Endpoint | Rol |
+| :--- | :--- | :--- | :--- |
+| 1 | Crear receta (nace en `Borrador`) | `POST /recetas` | Estándar |
+| 2 | Enviar a revisión | `POST /recetas/{id}/enviar-a-revision` | Estándar autor |
+| 3 | Publicar | `POST /recetas/{id}/publicar` | Administrador |
+| 4 | Rechazar con motivo | `POST /recetas/{id}/rechazar` | Administrador |
+| 5 | Retomar una rechazada | `POST /recetas/{id}/retomar` | Estándar autor |
+| 6 | Archivar (definitivo) | `POST /recetas/{id}/archivar` | Administrador |
+| 7 | Consultar por estado | `GET /recetas/publicadas`, `/en-revision`, `/mias` | Todos / Administrador / Estándar |
+| 8 | Guardar y ver la despensa | `PUT /despensa/ingredientes/{id}`, `GET /despensa` | Estándar |
+| 9 | Recetas que se pueden preparar con la despensa | `GET /recetas/preparables` | Estándar con el permiso `recetas.consultar-preparables` |
+
+Para apoyar la creación, el Administrador da de alta categorías (`POST /categorias`) e ingredientes (`POST /ingredientes`); cualquier usuario autenticado los lista.
+
+La funcionalidad 9 usa Gestión de permisos: el Estándar solicita `recetas.consultar-preparables`, un Administrador lo aprueba y solo entonces puede ejecutarla. `RecetaService.ListarPreparablesAsync` consulta `IPermisoService.TienePermisoAsync` en cada llamada (RD-06). Requiere haber seguido las secciones 1 a 3: usa a Ana y a Beto (Estándar, activos) y al Administrador sembrado. Los ejemplos se pueden repetir tras la [limpieza](#limpieza-de-los-datos-de-prueba).
 
 ```powershell
-# RF-NEG-03 toda receta nueva (y las existentes al migrar) queda en Borrador: la columna lo declara como valor por defecto
-Sql "SELECT COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='Recetas' AND COLUMN_NAME='Estado'"
+$a  = Login 'admin@whatareweeating.test' $pw
+$ta = Login 'ana@example.com' $pw
+$tb = Login 'beto@example.com' $pw
+
+# RF-NEG-06 sin sesión: 401. Un Estándar que llama una operación de Administrador: 403
+Llamar Get '/recetas/publicadas'
+Llamar Post '/categorias' @{ nombre = 'Prueba Postres' } $ta
+
+# Catálogo de apoyo (Administrador): una categoría y dos ingredientes
+$cat  = ((Llamar Post '/categorias' @{ nombre = 'Prueba Postres' } $a).Substring(4) | ConvertFrom-Json).id
+$harina = ((Llamar Post '/ingredientes' @{ nombre = 'Prueba Harina'; unidadBase = 'g' } $a).Substring(4) | ConvertFrom-Json).id
+$huevo  = ((Llamar Post '/ingredientes' @{ nombre = 'Prueba Huevo'; unidadBase = 'unidad' } $a).Substring(4) | ConvertFrom-Json).id
+
+# RF-NEG-02 (1) Ana crea una receta: 201 y estado "Borrador". El Administrador no crea recetas: 403
+$cuerpo = @{ nombre = 'Prueba Bizcocho'; instrucciones = 'Mezclar y hornear.'; categoriaId = $cat
+             ingredientes = @(@{ ingredienteId = $harina; cantidad = 300 }, @{ ingredienteId = $huevo; cantidad = 3 }) }
+$r = Llamar Post '/recetas' $cuerpo $ta; $r
+$id = ($r.Substring(4) | ConvertFrom-Json).id
+Llamar Post '/recetas' $cuerpo $a
+# RD-07 entrada inválida: 400 (nombre vacío, cantidad negativa); cuerpo roto o con tipos incorrectos: 400, nunca 500
+Llamar Post '/recetas' @{ nombre = '  '; instrucciones = 'x'; categoriaId = $cat } $ta
+Llamar Post '/recetas' @{ nombre = 'X'; instrucciones = 'x'; categoriaId = $cat; ingredientes = @(@{ ingredienteId = $harina; cantidad = -1 }) } $ta
+Llamar Post '/recetas' @{ nombre = 5 } $ta
+
+# RF-NEG-04 transición prohibida: una receta en Borrador no se publica (Borrador -> Publicada). 409 y sigue en Borrador
+Llamar Post "/recetas/$id/publicar" $null $a
+Llamar Get '/recetas/mias' $null $ta
+# Condición: solo el autor la envía. Beto (Estándar, no autor): 403 y sigue en Borrador
+Llamar Post "/recetas/$id/enviar-a-revision" $null $tb
+# Un Administrador tampoco: 403 (la ruta es del rol Estándar)
+Llamar Post "/recetas/$id/enviar-a-revision" $null $a
+
+# (2) Ana envía a revisión: 200 "EnRevision". Enviarla otra vez: 409 (EnRevision -> EnRevision no existe)
+Llamar Post "/recetas/$id/enviar-a-revision" $null $ta
+Llamar Post "/recetas/$id/enviar-a-revision" $null $ta
+# (7) El Administrador ve las que esperan revisión; un Estándar no: 403. Aún no hay publicadas visibles
+Llamar Get '/recetas/en-revision' $null $a
+Llamar Get '/recetas/en-revision' $null $ta
+Llamar Get '/recetas/publicadas' $null $tb
+
+# (4) Rechazar exige motivo: sin motivo 400 y sigue EnRevision. Con motivo: 200 "Rechazada" y el motivo guardado
+Llamar Post "/recetas/$id/rechazar" @{ motivo = '  ' } $a
+Llamar Post "/recetas/$id/rechazar" @{ motivo = 'Faltan las cantidades de azucar' } $a
+# Un Estándar no revisa: 403
+Llamar Post "/recetas/$id/publicar" $null $ta
+# (5) Beto no puede retomar la receta de Ana: 403. Ana sí: 200 y vuelve a "Borrador"
+Llamar Post "/recetas/$id/retomar" $null $tb
+Llamar Post "/recetas/$id/retomar" $null $ta
+
+# (3) Ciclo completo: Ana la reenvía y el Administrador la publica: 200 "Publicada"; ahora todos la ven
+Llamar Post "/recetas/$id/enviar-a-revision" $null $ta
+Llamar Post "/recetas/$id/publicar" $null $a
+Llamar Get '/recetas/publicadas' $null $tb
+
+# RF-NEG-05 estado terminal: (6) el Administrador archiva (200) y de Archivada no se sale.
+# Publicar, retomar o archivar otra vez: 409 y sigue "Archivada"
+Llamar Post "/recetas/$id/archivar" $null $a
+Llamar Post "/recetas/$id/publicar" $null $a
+Llamar Post "/recetas/$id/archivar" $null $a
+Llamar Get '/recetas/mias' $null $ta
 ```
 
-Para consultar la tabla de transiciones, crea un archivo `verificar-estados.cs` en la raíz del repositorio (no lo subas a git; bórralo después) con este contenido y ejecútalo con `dotnet run verificar-estados.cs`:
+La despensa y la funcionalidad que pide permiso (se crea otra receta publicada para tener qué preparar):
 
-```csharp
-#:project src/WhatAreWeEating.Recetas/WhatAreWeEating.Recetas.csproj
+```powershell
+# (1)(2)(3) otra receta de Ana, publicada
+$cuerpo.nombre = 'Prueba Panqueque'
+$id2 = ((Llamar Post '/recetas' $cuerpo $ta).Substring(4) | ConvertFrom-Json).id
+Llamar Post "/recetas/$id2/enviar-a-revision" $null $ta | Out-Null
+Llamar Post "/recetas/$id2/publicar" $null $a | Out-Null
 
-using WhatAreWeEating.Recetas.Enums;
-using WhatAreWeEating.Recetas.Estados;
+# (8) Beto guarda su despensa: 200. Cantidad negativa o ingrediente inexistente: 400
+Llamar Put "/despensa/ingredientes/$harina" @{ cantidad = 500; unidad = 'g' } $tb
+Llamar Put "/despensa/ingredientes/$huevo" @{ cantidad = 6 } $tb
+Llamar Put "/despensa/ingredientes/$huevo" @{ cantidad = -1 } $tb
+Llamar Put "/despensa/ingredientes/$([guid]::NewGuid())" @{ cantidad = 1; unidad = 'g' } $tb
+Llamar Get '/despensa' $null $tb
 
-// RF-NEG-04: solo las transiciones de la tabla están permitidas
-foreach (var origen in Enum.GetValues<EstadoReceta>())
-    foreach (var destino in Enum.GetValues<EstadoReceta>())
-        if (TransicionesReceta.EsTransicionPermitida(origen, destino))
-            Console.WriteLine($"{origen} -> {destino}: PERMITIDA");
+# (9) Sin el permiso concedido: 403 aunque tenga sesión y rol
+Llamar Get '/recetas/preparables' $null $tb
+# Beto lo solicita: 201 "Pendiente". Mientras no se apruebe, sigue en 403
+$r = Llamar Post '/permisos/solicitudes' @{ permiso = 'recetas.consultar-preparables' } $tb; $r
+$idSol = ($r.Substring(4) | ConvertFrom-Json).id
+Llamar Get '/recetas/preparables' $null $tb
+# El Administrador aprueba: 200 "Aplicada". Ahora sí: 200 con "Prueba Panqueque" (Beto tiene 500 g de harina y 6 huevos)
+Llamar Post "/permisos/solicitudes/$idSol/aprobar" $null $a
+Llamar Get '/recetas/preparables' $null $tb
+# Si Beto baja la harina a 100 g ya no le alcanza: 200 con lista vacía
+Llamar Put "/despensa/ingredientes/$harina" @{ cantidad = 100; unidad = 'g' } $tb | Out-Null
+Llamar Get '/recetas/preparables' $null $tb
 
-// RF-NEG-04: prohibida explícita
-var ok = TransicionesReceta.EsTransicionPermitida(EstadoReceta.Borrador, EstadoReceta.Publicada);
-Console.WriteLine($"Borrador -> Publicada: {(ok ? "PERMITIDA" : "PROHIBIDA")}");
-
-// RF-NEG-05: Archivada es terminal
-foreach (var destino in Enum.GetValues<EstadoReceta>())
-    if (TransicionesReceta.EsTransicionPermitida(EstadoReceta.Archivada, destino))
-        Console.WriteLine("ERROR: Archivada tiene salida");
-Console.WriteLine("Archivada sin transiciones de salida: OK");
+# RD-09 los datos del negocio están en la base y sobreviven a reiniciar la API
+Sql "SELECT Nombre, Estado, MotivoRechazo FROM Recetas WHERE Nombre LIKE 'Prueba %' ORDER BY Nombre"
 ```
 
-Resultado esperado: las cinco transiciones permitidas (`Borrador -> EnRevision`, `EnRevision -> Publicada`, `EnRevision -> Rechazada`, `Rechazada -> Borrador`, `Publicada -> Archivada`), `Borrador -> Publicada: PROHIBIDA` y `Archivada sin transiciones de salida: OK`.
+Tras detener y volver a lanzar la API, `Llamar Get '/recetas/mias' $null $ta` (con un token nuevo) sigue mostrando las dos recetas y sus estados.
 
 ### 8. Gestión de permisos
 
-Un usuario solicita un permiso del catálogo (`src/WhatAreWeEating.Core/Permisos/CatalogoPermisos.cs`; hoy existe uno: `directorio.consultar`, que habilita `GET /directorio`). Un Administrador lo aprueba o lo rechaza. Estados en `src/WhatAreWeEating.Core/Enums/EstadoSolicitudPermiso.cs` y transiciones en `src/WhatAreWeEating.Core/Permisos/TransicionesSolicitudPermiso.cs` (único punto donde se declaran, RD-04):
+Un usuario solicita un permiso del catálogo (`src/WhatAreWeEating.Core/Permisos/CatalogoPermisos.cs`; hoy existen dos: `directorio.consultar`, que habilita `GET /directorio`, y `recetas.consultar-preparables`, que habilita `GET /recetas/preparables`). Un Administrador lo aprueba o lo rechaza. Estados en `src/WhatAreWeEating.Core/Enums/EstadoSolicitudPermiso.cs` y transiciones en `src/WhatAreWeEating.Core/Permisos/TransicionesSolicitudPermiso.cs` (único punto donde se declaran, RD-04):
 
 | Desde | Hacia |
 | :--- | :--- |
@@ -598,10 +684,11 @@ Para comprobar el reinicio, detén la API (Ctrl+C en la ventana 1), vuelve a lan
 
 ### Limpieza de los datos de prueba
 
-Borra solo lo creado por estos ejemplos (usuarios `@example.com`; el Administrador sembrado usa otro dominio y no se borra), en este orden por las claves foráneas:
+Borra solo lo creado por estos ejemplos (usuarios `@example.com` y las recetas, despensas, categorías e ingredientes de prueba, cuyos nombres empiezan por `Prueba `; el Administrador sembrado usa otro dominio y no se borra), en este orden por las claves foráneas:
 
 ```powershell
 $in = "(SELECT Id FROM Usuarios WHERE Correo LIKE '%@example.com')"
+Sql "DELETE FROM DespensaIngredientes WHERE DespensaId IN (SELECT Id FROM Despensas WHERE UsuarioId IN $in); DELETE FROM Despensas WHERE UsuarioId IN $in; DELETE FROM RecetaIngredientes WHERE RecetaId IN (SELECT Id FROM Recetas WHERE AutorId IN $in); DELETE FROM Recetas WHERE AutorId IN $in; DELETE FROM Ingredientes WHERE Nombre LIKE 'Prueba %'; DELETE FROM Categorias WHERE Nombre LIKE 'Prueba %'" | Out-Null
 Sql "DELETE FROM PermisosConcedidos WHERE UsuarioId IN $in OR SolicitudId IN (SELECT Id FROM SolicitudesPermiso WHERE SolicitanteId IN $in OR ResueltaPorId IN $in); DELETE FROM SolicitudesPermiso WHERE SolicitanteId IN $in OR ResueltaPorId IN $in" | Out-Null
 Sql "DELETE FROM Sesiones WHERE UsuarioId IN $in; DELETE FROM TokensUnUso WHERE UsuarioId IN $in; DELETE FROM CorreosEnCola WHERE Destinatario LIKE '%@example.com'; DELETE FROM Usuarios WHERE Correo LIKE '%@example.com'" | Out-Null
 ```

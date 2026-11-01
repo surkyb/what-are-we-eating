@@ -44,8 +44,6 @@ public class Receta
         switch (Estado, destino)
         {
             case (EstadoReceta.Borrador, EstadoReceta.EnRevision):
-                var envio = ValidarEnvioARevision(actorId);
-                if (envio != ResultadoReceta.Ok) return envio;
                 break;
 
             case (EstadoReceta.EnRevision, EstadoReceta.Rechazada):

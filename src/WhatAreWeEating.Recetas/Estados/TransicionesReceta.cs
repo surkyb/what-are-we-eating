@@ -14,7 +14,7 @@ public static class TransicionesReceta
     public static readonly IReadOnlyDictionary<EstadoReceta, IReadOnlyList<EstadoReceta>> Permitidas =
         new Dictionary<EstadoReceta, IReadOnlyList<EstadoReceta>>
         {
-            [EstadoReceta.Borrador] = [EstadoReceta.EnRevision],
+            [EstadoReceta.Borrador] = [EstadoReceta.EnRevision, EstadoReceta.Publicada],
             [EstadoReceta.EnRevision] = [EstadoReceta.Publicada, EstadoReceta.Rechazada],
             [EstadoReceta.Rechazada] = [EstadoReceta.Borrador],
             [EstadoReceta.Publicada] = [EstadoReceta.Archivada],

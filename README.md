@@ -101,7 +101,7 @@ login() { curl -s $A/auth/login -H "$J" -d "{\"correo\":\"$1\",\"password\":\"$2
    TA=$(login ana@example.com Clave12345)
    curl -s -o /dev/null -w "%{http_code}\n" $A/admin/usuarios -H "Authorization: Bearer $TA"           # 403
    ```
-4. **Recuperación de contraseña** (el código sale del cuerpo del correo, tras `es:`):
+4. **Recuperación de contraseña** (el código es la línea que sigue a «Tu código de recuperación es:» en el cuerpo del correo):
    ```bash
    curl -s $A/auth/recuperar -H "$J" -d '{"correo":"ana@example.com"}'                                  # 200
    cola ana@example.com

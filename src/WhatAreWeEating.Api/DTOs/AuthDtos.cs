@@ -38,3 +38,20 @@ public record SolicitudPermisoResponse(
     DateTime? FechaAplicacion);
 
 public record DirectorioEntradaResponse(string Nombre, string Rol);
+
+// Módulo de recetas
+public record CategoriaRequest(string? Nombre);
+
+public record IngredienteRequest(string? Nombre, string? UnidadBase);
+
+public record IngredienteRecetaRequest(Guid IngredienteId, decimal Cantidad, string? Unidad);
+
+public record CrearRecetaRequest(string? Nombre, string? Descripcion, string? Instrucciones, Guid CategoriaId, List<IngredienteRecetaRequest>? Ingredientes);
+
+public record RechazarRecetaRequest(string? Motivo);
+
+public record GuardarDespensaRequest(decimal Cantidad, string? Unidad);
+
+public record RecetaResponse(
+    Guid Id, string Nombre, string? Descripcion, string Instrucciones, Guid AutorId, Guid CategoriaId,
+    string Estado, string? MotivoRechazo, IEnumerable<WhatAreWeEating.Recetas.Interfaces.IngredienteRecetaDto> Ingredientes);

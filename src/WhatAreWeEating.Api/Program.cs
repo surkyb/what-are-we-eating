@@ -78,6 +78,7 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapAdminEndpoints();
 app.MapPermisosEndpoints();
+app.MapRecetasEndpoints();
 
 // Endpoint de prueba / estado de la API
 app.MapGet("/", () => Results.Ok(new { status = "Healthy", service = "WhatAreWeEating API" }))

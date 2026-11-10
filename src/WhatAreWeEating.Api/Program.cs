@@ -31,6 +31,8 @@ builder.Services.AddJwtSessionAuthentication(jwtOptions);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.OperationFilter<WhatAreWeEating.Api.Swagger.SubidaDocumentoOperationFilter>();
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,

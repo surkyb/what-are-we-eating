@@ -43,8 +43,7 @@ public static class DocumentosEndpoints
             await using var contenido = archivo.OpenReadStream();
             var r = await documentos.SubirAsync(usuarioId, archivo.FileName, archivo.ContentType, contenido, ct);
             return r.Exito ? Results.Created($"/documentos/{r.Valor!.Id}", ToResponse(r.Valor)) : ToError(r.Codigo, r.Mensaje);
-        }).DisableAntiforgery().Accepts<SubirDocumentoForm>("multipart/form-data")
-          .RequiereOperacion(PoliciesCatalogo.Operaciones.SubirDocumento).WithName("SubirDocumento");
+        }).DisableAntiforgery().RequiereOperacion(PoliciesCatalogo.Operaciones.SubirDocumento).WithName("SubirDocumento");
 
         // RF-DOC-02
         grupo.MapGet("/", async (ClaimsPrincipal user, IDocumentoService documentos, CancellationToken ct) =>

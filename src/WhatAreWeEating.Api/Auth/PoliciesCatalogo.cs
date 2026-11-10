@@ -51,6 +51,13 @@ public static class PoliciesCatalogo
         public const string GuardarEnDespensa = "despensa.guardar";
         public const string ListarDespensa = "despensa.listar";
         public const string ListarRecetasPreparables = "recetas.listar-preparables";
+        public const string SugerirRecetasPorClima = "recetas.sugerir-por-clima";
+
+        // Manejador de documentos (Core): cualquier usuario con sesión; el dueño o el Administrador lo decide el servicio (RD-06)
+        public const string SubirDocumento = "documentos.subir";
+        public const string ListarDocumentos = "documentos.listar";
+        public const string DescargarDocumento = "documentos.descargar";
+        public const string EliminarDocumento = "documentos.eliminar";
     }
 
     private static readonly RolUsuario[] SoloAdministrador = [RolUsuario.Administrador];
@@ -97,6 +104,12 @@ public static class PoliciesCatalogo
         [Operaciones.GuardarEnDespensa] = SoloEstandar,
         [Operaciones.ListarDespensa] = SoloEstandar,
         [Operaciones.ListarRecetasPreparables] = SoloEstandar,
+        [Operaciones.SugerirRecetasPorClima] = Ambos,
+
+        [Operaciones.SubirDocumento] = Ambos,
+        [Operaciones.ListarDocumentos] = Ambos,
+        [Operaciones.DescargarDocumento] = Ambos,
+        [Operaciones.EliminarDocumento] = Ambos,
     };
 
     public static void Registrar(AuthorizationOptions options)

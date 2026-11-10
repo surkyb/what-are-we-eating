@@ -66,6 +66,49 @@ namespace WhatAreWeEating.Infrastructure.Migrations
                     b.ToTable("CorreosEnCola", (string)null);
                 });
 
+            modelBuilder.Entity("WhatAreWeEating.Core.Entities.Documento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ClaveAlmacenamiento")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("Eliminado")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("FechaEliminacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaSubida")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("PropietarioId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("TamanoBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PropietarioId");
+
+                    b.ToTable("Documentos", (string)null);
+                });
+
             modelBuilder.Entity("WhatAreWeEating.Core.Entities.PermisoConcedido", b =>
                 {
                     b.Property<Guid>("Id")
@@ -399,6 +442,15 @@ namespace WhatAreWeEating.Infrastructure.Migrations
                     b.HasIndex("IngredienteId");
 
                     b.ToTable("RecetaIngredientes", (string)null);
+                });
+
+            modelBuilder.Entity("WhatAreWeEating.Core.Entities.Documento", b =>
+                {
+                    b.HasOne("WhatAreWeEating.Core.Entities.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("PropietarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("WhatAreWeEating.Core.Entities.PermisoConcedido", b =>

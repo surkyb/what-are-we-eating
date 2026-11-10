@@ -39,6 +39,9 @@ public record SolicitudPermisoResponse(
 
 public record DirectorioEntradaResponse(string Nombre, string Rol);
 
+// Documentos
+public record DocumentoResponse(Guid Id, string Nombre, string Tipo, long TamanoBytes, DateTime FechaSubida, Guid PropietarioId);
+
 // Módulo de recetas
 public record CategoriaRequest(string? Nombre);
 
@@ -51,6 +54,8 @@ public record CrearRecetaRequest(string? Nombre, string? Descripcion, string? In
 public record RechazarRecetaRequest(string? Motivo);
 
 public record GuardarDespensaRequest(decimal Cantidad, string? Unidad);
+
+public record SugerenciaRecetasResponse(WhatAreWeEating.Core.Interfaces.ClimaDto Clima, string Criterio, IEnumerable<RecetaResponse> Recetas);
 
 public record RecetaResponse(
     Guid Id, string Nombre, string? Descripcion, string Instrucciones, Guid AutorId, Guid CategoriaId,

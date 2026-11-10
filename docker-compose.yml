@@ -1,0 +1,68 @@
+# Arranque completo: docker compose up --build
+# Las variables ${...} salen del archivo .env (copia de .env.example); aquí no hay ningún valor secreto.
+name: whatareweeating
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD:?Falta DB_SA_PASSWORD en .env (copie .env.example a .env)}
+    volumes:
+      - datos-db:/var/opt/mssql
+    # Sin "ports": la base solo es accesible desde la red interna de la composición
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q \"SELECT 1\" -b -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      target: api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      # El servicio de la base se encuentra por su nombre ("db"), no por localhost
+      ConnectionStrings__Default: Server=db,1433;Database=WhatAreWeEating;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;
+      Jwt__Key: ${JWT_KEY:?Falta JWT_KEY en .env}
+      Seed__AdminEmail: ${SEED_ADMIN_EMAIL:-}
+      Seed__AdminName: ${SEED_ADMIN_NAME:-Administrador}
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+      App__BaseUrl: http://localhost:${APP_PORT:-5228}
+      OpenWeather__ApiKey: ${OPENWEATHER_API_KEY:-}
+    volumes:
+      - archivos-documentos:/data/documentos
+    ports:
+      - "${APP_PORT:-5228}:8080"
+    restart: unless-stopped
+
+  # Envío de correos (opcional): docker compose --profile correo up --build
+  # El MailWorker procesa la cola una vez y termina; este bucle lo repite cada 15 segundos.
+  mailworker:
+    profiles: ["correo"]
+    build:
+      context: .
+      target: worker
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c", "while true; do dotnet WhatAreWeEating.MailWorker.dll; sleep 15; done"]
+    environment:
+      ConnectionStrings__Default: Server=db,1433;Database=WhatAreWeEating;User Id=sa;Password=${DB_SA_PASSWORD};TrustServerCertificate=True;
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__User: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+    restart: unless-stopped
+
+volumes:
+  datos-db:            # carpeta de datos del motor de base de datos (usuarios, solicitudes, registros de documentos)
+  archivos-documentos: # archivos subidos (RF-DOC-05)

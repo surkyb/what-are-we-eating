@@ -50,6 +50,19 @@ public static class DependencyInjection
         // Módulo de negocio de recetas (usa Gestión de permisos para la operación que requiere permiso)
         services.AddScoped<IRecetaService, RecetaService>();
 
+        // Manejador de documentos (Documentos__Ruta apunta al volumen de archivos en el contenedor)
+        services.AddSingleton(_ => DocumentoOptions.Cargar(configuration));
+        services.AddScoped<IDocumentoService, DocumentoService>();
+
+        // API externa de clima: la clave llega solo por OpenWeather__ApiKey (RD-10). Se quitan los logs del
+        // cliente HTTP porque registrarian la URL completa, que lleva la clave en la consulta.
+        services.AddHttpClient<IClimaService, OpenWeatherClimaService>(cliente =>
+        {
+            cliente.BaseAddress = new Uri(OpenWeatherClimaService.UrlBase);
+            cliente.Timeout = TimeSpan.FromSeconds(8);
+        }).RemoveAllLoggers();
+        services.AddScoped<ISugerenciaRecetasService, SugerenciaRecetasService>();
+
         return services;
     }
 }

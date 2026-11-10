@@ -92,6 +92,25 @@ public static class RecetasEndpoints
             return r.Exito ? Results.Ok(r.Valor!.Select(ToResponse)) : ToError(r.Codigo, r.Mensaje);
         }).RequiereOperacion(PoliciesCatalogo.Operaciones.ListarRecetasPreparables).WithName("ListarRecetasPreparables");
 
+        // 9. Sugerencia según el clima actual de una ciudad (API externa; la clave sale de OpenWeather__ApiKey)
+        grupo.MapGet("/sugeridas", async (string? ciudad, ISugerenciaRecetasService sugerencias, CancellationToken ct) =>
+        {
+            var r = await sugerencias.SugerirPorClimaAsync(ciudad, ct);
+            if (r.Exito)
+            {
+                var s = r.Valor!;
+                return Results.Ok(new SugerenciaRecetasResponse(s.Clima, s.Criterio, s.Recetas.Select(ToResponse)));
+            }
+
+            var cuerpo = new MensajeResponse(r.Mensaje ?? "No fue posible obtener el clima.");
+            return r.Codigo switch
+            {
+                Core.Interfaces.ResultadoClima.CiudadInvalida => Results.BadRequest(cuerpo),
+                Core.Interfaces.ResultadoClima.CiudadNoEncontrada => Results.NotFound(cuerpo),
+                _ => Results.Json(cuerpo, statusCode: StatusCodes.Status503ServiceUnavailable)
+            };
+        }).RequiereOperacion(PoliciesCatalogo.Operaciones.SugerirRecetasPorClima).WithName("SugerirRecetasPorClima");
+
         // 7. Despensa
         var despensa = app.MapGroup("/despensa").WithTags("Despensa");
 

@@ -18,6 +18,8 @@ public class AppDbContext : DbContext
     public DbSet<SolicitudPermiso> SolicitudesPermiso => Set<SolicitudPermiso>();
     public DbSet<PermisoConcedido> PermisosConcedidos => Set<PermisoConcedido>();
 
+    public DbSet<Documento> Documentos => Set<Documento>();
+
     // Recetas
     public DbSet<Receta> Recetas => Set<Receta>();
     public DbSet<Ingrediente> Ingredientes => Set<Ingrediente>();

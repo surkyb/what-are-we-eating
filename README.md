@@ -21,6 +21,226 @@ tests/
 
 Reglas de dependencia: Core no referencia a nadie; Recetas referencia Core; Infrastructure referencia Core y Recetas; Api y MailWorker referencian lo que necesitan.
 
+## Contenedor
+
+Todo el proyecto (API, SQL Server y los archivos de los documentos) corre en contenedores. Lo único que hay que tener instalado es **Docker** (Docker Desktop o Docker Engine con el plugin Compose).
+
+1. **Clonar y preparar la configuración** (único paso previo; `.env` no se versiona):
+   ```bash
+   git clone <url-del-repo> WhatAreWeEating
+   cd WhatAreWeEating
+   cp .env.example .env
+   ```
+   En PowerShell: `Copy-Item .env.example .env`. El archivo `.env.example` ya trae valores de ejemplo para todas las variables y el proyecto levanta con ellos; para probar el clima real, escribe tu clave en `OPENWEATHER_API_KEY` (ver [API externa](#api-externa)).
+
+2. **Levantar el proyecto** (construye la imagen, crea la base, aplica las migraciones y siembra el Administrador, sin ningún paso manual):
+   ```bash
+   docker compose up --build
+   ```
+
+3. **Dirección donde responde:** **http://localhost:5228** (el puerto sale de `APP_PORT` en `.env`). Comprobación: `http://localhost:5228/` devuelve `status = Healthy`. Swagger está en **http://localhost:5228/swagger**.
+
+4. **Detener el proyecto:**
+   ```bash
+   docker compose down
+   ```
+   Sin `-v`, conserva los datos (ver más abajo). **`docker compose down -v` borra los volúmenes y con ellos todos los datos y documentos.**
+
+Solo la API publica un puerto; SQL Server no es accesible desde fuera de la composición y la API lo encuentra por su nombre de servicio (`db`), no por `localhost`.
+
+**Usuario administrador de ejemplo** (sembrado desde `.env`): `admin@whatareweeating.test` con la contraseña de `SEED_ADMIN_PASSWORD` (`Admin12345` en el ejemplo).
+
+### Los datos sobreviven
+
+| Volumen | Contiene |
+| :--- | :--- |
+| `archivos-documentos` (montado en `/data/documentos` de la API) | Los archivos subidos (RF-DOC-05). Fuera de la imagen. |
+| `datos-db` (montado en `/var/opt/mssql` de SQL Server) | Usuarios, sesiones, solicitudes, recetas y los registros de documentos (RD-09). |
+
+Prueba: sube un documento (ver [Documentos](#documentos)), ejecuta `docker compose down`, vuelve a levantar con `docker compose up`, y el documento sigue en `GET /documentos` y se descarga; el usuario sigue iniciando sesión.
+
+### Activación por correo dentro del contenedor
+
+El registro solo **encola** el correo de activación; el envío real lo hace el MailWorker. Hay dos maneras:
+
+- **Leer el token de la cola** (no necesita SMTP). Reemplaza el correo del ejemplo; funciona igual en bash y PowerShell:
+  ```bash
+  echo "SET NOCOUNT ON; SELECT TOP 1 Cuerpo FROM CorreosEnCola WHERE Destinatario='ana@example.com' ORDER BY FechaCreacion DESC" | docker compose exec -T db sh -c '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d WhatAreWeEating -y 0'
+  ```
+  El cuerpo trae el enlace `.../auth/activar?token=<TOKEN>`; úsalo tal cual (ver la sección 1 de «Cómo provocar cada criterio»). El código de recuperación de contraseña sale de la misma consulta.
+- **Enviar los correos de verdad:** completa las variables `SMTP_*` de `.env` y levanta con el perfil del worker, que procesa la cola cada 15 segundos:
+  ```bash
+  docker compose --profile correo up --build
+  ```
+
+### Prueba rápida de los seis frentes (contenedor levantado)
+
+Sirve en bash (Git Bash, WSL, macOS o Linux). Todo es contra `http://localhost:5228`; sin `curl`, el mismo recorrido se hace en `http://localhost:5228/swagger` (login, botón **Authorize** y pegar el token). Los correos no se envían (ver «Activación por correo»): el token y el código se leen de la cola con este comando, que se reutiliza abajo cambiando el correo:
+
+```bash
+cola() { echo "SET NOCOUNT ON; SELECT TOP 1 Cuerpo FROM CorreosEnCola WHERE Destinatario='$1' ORDER BY FechaCreacion DESC" | docker compose exec -T db sh -c '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d WhatAreWeEating -y 0'; }
+A=http://localhost:5228; J="Content-Type: application/json"
+login() { curl -s $A/auth/login -H "$J" -d "{\"correo\":\"$1\",\"password\":\"$2\"}" | sed 's/.*"token":"\([^"]*\)".*/\1/'; }
+```
+
+1. **Registro con activación por correo.** Registra, lee el correo y abre el enlace (o pega el token):
+   ```bash
+   curl -s $A/auth/registro -H "$J" -d '{"nombre":"Ana","correo":"ana@example.com","password":"Clave12345"}'   # 201
+   cola ana@example.com                      # trae http://localhost:5228/auth/activar?token=<TOKEN>
+   curl -s "$A/auth/activar?token=<TOKEN>"   # 200: cuenta activa
+   ```
+2. **Inicio y cierre de sesión:**
+   ```bash
+   TA=$(login ana@example.com Clave12345)
+   curl -s -o /dev/null -w "%{http_code}\n" $A/auth/me -H "Authorization: Bearer $TA"                  # 200
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST $A/auth/logout -H "Authorization: Bearer $TA"      # 200
+   curl -s -o /dev/null -w "%{http_code}\n" $A/auth/me -H "Authorization: Bearer $TA"                  # 401: la sesión se cerró
+   ```
+3. **Rechazo a un Estándar en una operación de Administrador:**
+   ```bash
+   TA=$(login ana@example.com Clave12345)
+   curl -s -o /dev/null -w "%{http_code}\n" $A/admin/usuarios -H "Authorization: Bearer $TA"           # 403
+   ```
+4. **Recuperación de contraseña** (el código sale del cuerpo del correo, tras `es:`):
+   ```bash
+   curl -s $A/auth/recuperar -H "$J" -d '{"correo":"ana@example.com"}'                                  # 200
+   cola ana@example.com
+   curl -s $A/auth/restablecer -H "$J" -d '{"codigo":"<CODIGO>","passwordNueva":"Nueva12345"}'          # 200
+   login ana@example.com Nueva12345 | head -c 20; echo                                                  # la contraseña nueva entra
+   ```
+5. **Gestión de permisos** (el Administrador sembrado es `admin@whatareweeating.test` / `Admin12345` del ejemplo):
+   ```bash
+   TA=$(login ana@example.com Nueva12345); TAD=$(login admin@whatareweeating.test Admin12345)
+   curl -s $A/permisos/solicitudes -H "$J" -H "Authorization: Bearer $TA" -d '{"permiso":"directorio.consultar"}'   # 201 Pendiente; copie el "id" como <ID>
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST $A/permisos/solicitudes/<ID>/aprobar -H "Authorization: Bearer $TAD"   # 200 Aplicada
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST $A/permisos/solicitudes/<ID>/aprobar -H "Authorization: Bearer $TAD"   # 409: aprobar dos veces no está en la tabla
+   ```
+   Para rechazar: crea otra solicitud y usa `POST /permisos/solicitudes/<ID>/rechazar` con `{"motivo":"no procede"}` (200); aprobarla después da 409.
+6. **Módulo de negocio (recetas):** una operación válida y la transición prohibida `Borrador → Publicada`:
+   ```bash
+   CAT=$(curl -s $A/categorias -H "$J" -H "Authorization: Bearer $TAD" -d '{"nombre":"Sopas"}' | sed 's/.*"id":"\([^"]*\)".*/\1/')
+   ING=$(curl -s $A/ingredientes -H "$J" -H "Authorization: Bearer $TAD" -d '{"nombre":"Pollo","unidadBase":"g"}' | sed 's/.*"id":"\([^"]*\)".*/\1/')
+   R=$(curl -s $A/recetas -H "$J" -H "Authorization: Bearer $TA" -d "{\"nombre\":\"Sopa de pollo\",\"instrucciones\":\"Hervir\",\"categoriaId\":\"$CAT\",\"ingredientes\":[{\"ingredienteId\":\"$ING\",\"cantidad\":200,\"unidad\":\"g\"}]}" | sed 's/.*"id":"\([^"]*\)".*/\1/')
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST $A/recetas/$R/publicar -H "Authorization: Bearer $TAD"            # 409: prohibida desde Borrador
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST $A/recetas/$R/enviar-a-revision -H "Authorization: Bearer $TA"   # 200: operación válida
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST $A/recetas/$R/publicar -H "Authorization: Bearer $TAD"            # 200
+   ```
+
+### Documentos
+
+Todas las operaciones exigen sesión (`Authorization: Bearer <token>` de `POST /auth/login`).
+
+| Operación | Requisito | Detalle |
+| :--- | :--- | :--- |
+| `POST /documentos` (multipart, campo `archivo`) | RF-DOC-01 | 201 con id, nombre, tipo, tamaño, fecha y propietario. Sin archivo o vacío: 400. Más de 10 MB: 413. |
+| `GET /documentos` | RF-DOC-02 | Los propios (el Administrador ve los de todos). Nunca los eliminados. |
+| `GET /documentos/{id}/descargar` | RF-DOC-03 | Solo el dueño o un Administrador; otro usuario: 403. |
+| `DELETE /documentos/{id}` | RF-DOC-04 | Eliminación lógica: deja de listarse (y de descargarse) pero el registro y el archivo siguen en el almacenamiento. |
+
+```bash
+curl -X POST http://localhost:5228/documentos -H "Authorization: Bearer $TOKEN" -F "archivo=@menu.pdf"
+curl http://localhost:5228/documentos -H "Authorization: Bearer $TOKEN"
+curl -OJ http://localhost:5228/documentos/<id>/descargar -H "Authorization: Bearer $TOKEN"
+curl -X DELETE http://localhost:5228/documentos/<id> -H "Authorization: Bearer $TOKEN"
+```
+
+La autorización se decide en `DocumentoService` (servidor), no solo en el endpoint (RD-06). Un archivo ausente o vacío da un 400 controlado (RD-07).
+
+## API externa
+
+- **API:** [OpenWeatherMap, *Current weather data*](https://openweathermap.org/current) (`https://api.openweathermap.org/data/2.5/weather`). Exige una clave; la gratuita sirve (se activa unos minutos después de crearla).
+- **Operación que la usa:** la sección del negocio **«¿Qué comemos hoy según el clima?»**: `GET /recetas/sugeridas?ciudad=<ciudad>` (cualquier usuario con sesión). Responde a la pregunta central del proyecto, qué comer, añadiendo el clima de la ciudad como criterio. Consulta la temperatura actual de la ciudad y, según ella, decide **qué recetas publicadas sugerir**: con calor (>= 27 °C) platos frescos, con frío (<= 18 °C) platos calientes, y con clima templado todas. Las recetas se clasifican por palabras del nombre o de la categoría (ensalada, sopa, caldo, postre...). No es un reenvío de la respuesta: la respuesta de la API solo alimenta una decisión del negocio.
+- **Variable de entorno:** `OpenWeather__ApiKey` en la API, que en la composición llega desde `OPENWEATHER_API_KEY` de `.env`. La clave no está en el código, el Dockerfile, el `docker-compose.yml`, la imagen ni el historial; los logs del cliente HTTP están desactivados porque imprimirían la URL con la clave.
+- **Rechazos controlados:** ciudad vacía: 400; ciudad inexistente: 404; clave no definida, clave rechazada o API caída o lenta (tiempo máximo 8 s): 503 con un mensaje comprensible. El resto del proyecto sigue funcionando.
+
+Ejemplo de la respuesta de la API (`curl "https://api.openweathermap.org/data/2.5/weather?q=Santo%20Domingo&units=metric&lang=es&appid=<CLAVE>"`):
+
+```json
+{
+  "coord": {
+    "lon": -69.9886,
+    "lat": 18.5001
+  },
+  "weather": [
+    {
+      "id": 802,
+      "main": "Clouds",
+      "description": "nubes dispersas",
+      "icon": "03n"
+    }
+  ],
+  "base": "stations",
+  "main": {
+    "temp": 30.06,
+    "feels_like": 37.06,
+    "temp_min": 29.13,
+    "temp_max": 30.8,
+    "pressure": 1016,
+    "humidity": 79,
+    "sea_level": 1016,
+    "grnd_level": 1005
+  },
+  "visibility": 10000,
+  "wind": {
+    "speed": 2.57,
+    "deg": 180
+  },
+  "clouds": {
+    "all": 40
+  },
+  "dt": 1794348351,
+  "sys": {
+    "type": 2,
+    "id": 2020859,
+    "country": "DO",
+    "sunrise": 1794307439,
+    "sunset": 1794348232
+  },
+  "timezone": -14400,
+  "id": 3492908,
+  "name": "Santo Domingo",
+  "cod": 200
+}
+```
+
+Y de nuestra operación (`GET /recetas/sugeridas?ciudad=Santo%20Domingo`):
+
+```json
+{
+  "clima": {
+    "ciudad": "Santo Domingo",
+    "pais": "DO",
+    "temperaturaC": 30.1,
+    "descripcion": "nubes dispersas"
+  },
+  "criterio": "Hace calor (>= 27 °C): se sugieren platos frescos.",
+  "recetas": [
+    {
+      "id": "a8ce0025-fe35-40d2-a344-b4ae1f833d86",
+      "nombre": "Ensalada fresca",
+      "descripcion": "Lechuga con limon",
+      "instrucciones": "Mezclar y servir fria.",
+      "autorId": "2a8b645f-6104-43e3-9fdc-51cee787d4cc",
+      "categoriaId": "d49de702-7e72-4b27-975b-0593dffaf8f1",
+      "estado": "Publicada",
+      "motivoRechazo": null,
+      "ingredientes": [
+        {
+          "ingredienteId": "5be4d142-fa30-4f7f-802d-fff21ed76143",
+          "nombre": "Lechuga",
+          "cantidad": 150.0,
+          "unidad": "g"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Ejecución local sin contenedor (opcional)
+
+Lo que sigue describe la ejecución con el SDK de .NET, útil para depurar. Para correr el proyecto basta con la sección [Contenedor](#contenedor).
+
 ## Requisitos previos
 
 | Herramienta | Para qué | Cómo comprobarla |
@@ -54,6 +274,9 @@ Con SQL Server Express la instancia suele llamarse `localhost\SQLEXPRESS`; ajust
 | `Smtp__Password` | Sí | MailWorker | Contraseña (o contraseña de aplicación) de esa cuenta SMTP. Nunca se imprime ni se guarda en `UltimoError`. |
 | `Smtp__From` | Sí | MailWorker | Dirección remitente de los correos. |
 | `Smtp__EnableSsl` | Sí | MailWorker | `true` o `false`: activa SSL/TLS en la conexión SMTP. |
+| `OpenWeather__ApiKey` | No | API | Clave de OpenWeatherMap para `GET /recetas/sugeridas`. Si falta, esa operación responde 503 con un mensaje claro y el resto sigue funcionando. |
+| `Documentos__Ruta` | No | API | Carpeta donde se guardan los archivos de los documentos. En el contenedor es `/data/documentos` (un volumen). |
+| `Documentos__TamanoMaximoBytes` | No | API | Tamaño máximo por archivo; por defecto 10 MB. |
 
 ## Cómo ejecutar el proyecto
 

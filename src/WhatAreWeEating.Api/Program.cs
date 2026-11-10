@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using WhatAreWeEating.Api.Auth;
 using WhatAreWeEating.Api.Endpoints;
@@ -46,6 +47,30 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+// Migraciones automáticas: en el contenedor la base se crea y actualiza sin pasos manuales.
+// La base puede tardar en aceptar conexiones, así que se reintenta unos segundos.
+if (!string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("Default")))
+{
+    const int intentos = 15;
+    for (var intento = 1; intento <= intentos; intento++)
+    {
+        try
+        {
+            await using var scope = app.Services.CreateAsyncScope();
+            await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+            Console.WriteLine("Base de datos: migraciones aplicadas.");
+            break;
+        }
+        catch (Exception ex)
+        {
+            // Solo el tipo: el mensaje podría incluir datos de conexión
+            Console.Error.WriteLine($"Base de datos no disponible todavía (intento {intento}/{intentos}, {ex.GetType().Name}).");
+            if (intento == intentos) break;
+            await Task.Delay(TimeSpan.FromSeconds(4));
+        }
+    }
+}
+
 // Siembra del primer administrador (Seed__AdminEmail / Seed__AdminName / Seed__AdminPassword)
 try
 {
@@ -79,6 +104,7 @@ app.MapAuthEndpoints();
 app.MapAdminEndpoints();
 app.MapPermisosEndpoints();
 app.MapRecetasEndpoints();
+app.MapDocumentosEndpoints();
 
 // Endpoint de prueba / estado de la API
 app.MapGet("/", () => Results.Ok(new { status = "Healthy", service = "WhatAreWeEating API" }))

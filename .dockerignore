@@ -1,0 +1,35 @@
+# Control de versiones
+.git
+.gitignore
+.gitattributes
+.github
+
+# Dependencias instaladas y carpetas de compilación
+**/bin/
+**/obj/
+**/node_modules/
+TestResults/
+
+# Editores y sistema operativo
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
+
+# Secretos y configuración local: nunca deben entrar a la imagen
+.env
+.env.*
+!.env.example
+
+# Lo que la imagen no necesita
+tests/
+docs/
+*.md
+*.png
+*.txt
+docker-compose*.yml
+Dockerfile
+.dockerignore

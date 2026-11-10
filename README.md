@@ -63,9 +63,9 @@ Prueba: sube un documento (ver [Documentos](#documentos)), ejecuta `docker compo
 
 El registro solo **encola** el correo de activación; el envío real lo hace el MailWorker. Hay dos maneras:
 
-- **Leer el token de la cola** (no necesita SMTP). Reemplaza el correo del ejemplo; funciona igual en bash y PowerShell:
+- **Leer el token de la cola** (no necesita SMTP). Desde la carpeta del repositorio, con el proyecto levantado; reemplaza el correo del ejemplo. Funciona igual en bash y en PowerShell:
   ```bash
-  echo "SET NOCOUNT ON; SELECT TOP 1 Cuerpo FROM CorreosEnCola WHERE Destinatario='ana@example.com' ORDER BY FechaCreacion DESC" | docker compose exec -T db sh -c '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d WhatAreWeEating -y 0'
+  docker compose exec -T db sqlcmd -C -S localhost -d WhatAreWeEating -y 0 -Q "SELECT TOP 1 Cuerpo FROM CorreosEnCola WHERE Destinatario='ana@example.com' ORDER BY FechaCreacion DESC"
   ```
   El cuerpo trae el enlace `.../auth/activar?token=<TOKEN>`; úsalo tal cual (ver la sección 1 de «Cómo provocar cada criterio»). El código de recuperación de contraseña sale de la misma consulta.
 - **Enviar los correos de verdad:** completa las variables `SMTP_*` de `.env` y levanta con el perfil del worker, que procesa la cola cada 15 segundos:
@@ -78,7 +78,7 @@ El registro solo **encola** el correo de activación; el envío real lo hace el 
 Sirve en bash (Git Bash, WSL, macOS o Linux). Todo es contra `http://localhost:5228`; sin `curl`, el mismo recorrido se hace en `http://localhost:5228/swagger` (login, botón **Authorize** y pegar el token). Los correos no se envían (ver «Activación por correo»): el token y el código se leen de la cola con este comando, que se reutiliza abajo cambiando el correo:
 
 ```bash
-cola() { echo "SET NOCOUNT ON; SELECT TOP 1 Cuerpo FROM CorreosEnCola WHERE Destinatario='$1' ORDER BY FechaCreacion DESC" | docker compose exec -T db sh -c '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -d WhatAreWeEating -y 0'; }
+cola() { docker compose exec -T db sqlcmd -C -S localhost -d WhatAreWeEating -y 0 -Q "SELECT TOP 1 Cuerpo FROM CorreosEnCola WHERE Destinatario='$1' ORDER BY FechaCreacion DESC"; }
 A=http://localhost:5228; J="Content-Type: application/json"
 login() { curl -s $A/auth/login -H "$J" -d "{\"correo\":\"$1\",\"password\":\"$2\"}" | sed 's/.*"token":"\([^"]*\)".*/\1/'; }
 ```
@@ -143,6 +143,19 @@ curl http://localhost:5228/documentos -H "Authorization: Bearer $TOKEN"
 curl -OJ http://localhost:5228/documentos/<id>/descargar -H "Authorization: Bearer $TOKEN"
 curl -X DELETE http://localhost:5228/documentos/<id> -H "Authorization: Bearer $TOKEN"
 ```
+
+**En PowerShell** (Windows) escribe `curl.exe`, no `curl` (en PowerShell `curl` es otro comando):
+
+```powershell
+$A = "http://localhost:5228"
+$TOKEN = (Invoke-RestMethod "$A/auth/login" -Method Post -ContentType 'application/json' -Body '{"correo":"admin@whatareweeating.test","password":"Admin12345"}').token
+curl.exe -X POST "$A/documentos" -H "Authorization: Bearer $TOKEN" -F "archivo=@menu.pdf"
+Invoke-RestMethod "$A/documentos" -Headers @{ Authorization = "Bearer $TOKEN" }
+curl.exe -OJ "$A/documentos/<id>/descargar" -H "Authorization: Bearer $TOKEN"
+curl.exe -X DELETE "$A/documentos/<id>" -H "Authorization: Bearer $TOKEN"
+```
+
+También puedes usar **Swagger** (`http://localhost:5228/swagger`): `POST /auth/login`, **Authorize** con el token, y `POST /documentos` muestra un selector para el campo `archivo`.
 
 La autorización se decide en `DocumentoService` (servidor), no solo en el endpoint (RD-06). Un archivo ausente o vacío da un 400 controlado (RD-07).
 

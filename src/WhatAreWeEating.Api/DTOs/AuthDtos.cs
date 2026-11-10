@@ -40,6 +40,12 @@ public record SolicitudPermisoResponse(
 public record DirectorioEntradaResponse(string Nombre, string Rol);
 
 // Documentos
+/// <summary>Solo describe el formulario de subida para Swagger; el endpoint lee el campo "archivo" a mano (RD-07).</summary>
+public class SubirDocumentoForm
+{
+    public IFormFile? Archivo { get; set; }
+}
+
 public record DocumentoResponse(Guid Id, string Nombre, string Tipo, long TamanoBytes, DateTime FechaSubida, Guid PropietarioId);
 
 // Módulo de recetas

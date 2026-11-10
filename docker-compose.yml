@@ -8,6 +8,10 @@ services:
     environment:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD:?Falta DB_SA_PASSWORD en .env (copie .env.example a .env)}
+      # Para consultar la base con "docker compose exec db sqlcmd ..." sin escribir la ruta ni la contraseña
+      PATH: /opt/mssql-tools18/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      SQLCMDUSER: sa
+      SQLCMDPASSWORD: ${DB_SA_PASSWORD}
     volumes:
       - datos-db:/var/opt/mssql
     # Sin "ports": la base solo es accesible desde la red interna de la composición
